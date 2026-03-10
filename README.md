@@ -133,16 +133,13 @@ terraform apply
 
 We use a **Rolling Release** model (no semantic versioning). Every commit to `main` is stable.
 
-### Hash Pinning
+### Hash Pinning (Supply Chain Security)
 
-We recommend pinning modules to a specific commit hash to ensure stability.
+We strongly recommend pinning modules to a specific commit hash for production environments. This prevents unintended updates and protects against potential supply chain compromises.
 
 ```hcl
 module "gcp_hardening" {
-  # The standard Terraform GitHub shorthand with the // subdirectory separator
-  source = "github.com/GoogleCloudPlatform/gcp-hardening-toolkit//modules/gcp-org-policies?ref=ab1e62f5"
-
-  # ...
+  source = "github.com/GoogleCloudPlatform/gcp-hardening-toolkit//modules/gcp-org-policies?ref=<COMMIT_HASH>"
 }
 ```
 
