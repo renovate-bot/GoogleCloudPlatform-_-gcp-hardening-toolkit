@@ -2,7 +2,7 @@
   "name": "hardening-agent",
   "description": "A specialized security assistant for GCP hardening and blueprint generation.",
   "version": "1.0.0",
-  "contextFileName": "${extensionPath}/GEMINI.md",
+  "contextFileName": "./agent/GEMINI.md",
   "mcpServers": {
     "bigquery": {
       "description": "Hosted BigQuery MCP server for security telemetry and asset inventory.",
