@@ -57,7 +57,7 @@ Follow these steps to bootstrap and initialize the interactive assistant:
    ```
 
    **Option B: Service Account JSON Key**
-   To authenticate using a Service Account JSON key (reference: [Google Doc](https://docs.google.com/document/d/1SF47ACVc1dzwa9_6zJo14uWZcIeB2JzCVDUQD_5B7kQ/edit?resourcekey=0-37HJZWQIHlyA4QucGtBYpQ&tab=t.0)):
+   To authenticate using a Service Account JSON key:
    ```bash
    export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/service-account-key.json"
    ```
@@ -70,7 +70,7 @@ Follow these steps to bootstrap and initialize the interactive assistant:
    ```bash
    #Set your Google Cloud Project
    export GOOGLE_CLOUD_PROJECT="YOUR_PROJECT_ID"
-   gemini extensions link . #This command will link the gemini-extension.json to your Gemini environment 
+   gemini extensions link . #This command will link the gemini-extension.json to your Gemini environment
    gemini
    ```
 
@@ -95,7 +95,7 @@ The `gemini-cli` uses [**application-default credentials (ADC)**](https://docs.c
 > [!WARNING]
 > DO NOT use administrator accounts to log into Google Cloud for the hardening agent.
 > DO NOT enable [auto decision-making](#disabling-auto-decision-making) in the hardening agent.
-> 
+>
 > **Recommendation:** We recommend running the hardening agent using a Service Account as stated in [Option B](../README.md#option-b-service-account-json-key) of the root `README.md`. To follow the principle of least privilege, create the custom role for the viewer found in the `custom-role-creation` directory and assign it to the Service Account.
 
 ### Disabling Auto Decision-Making
