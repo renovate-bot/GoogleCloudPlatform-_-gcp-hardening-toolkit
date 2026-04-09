@@ -146,7 +146,7 @@ Replace `YOUR_PROJECT_ID` with your project's ID.
 ```bash
 gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
     --member="serviceAccount:hardening-agent-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
-    --role="projects/YOUR_PROJECT_ID/roles/hardeningAgentViewer"
+    --role="projects/YOUR_PROJECT_ID/roles/hardeningAgentViewer" # pragma: allowlist secret
 ```
 
 3. **Bind the predefined role for MCP tool usage (required for agent tools):**
