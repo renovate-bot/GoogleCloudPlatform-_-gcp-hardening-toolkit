@@ -118,18 +118,15 @@ Use this open-source toolkit if:
 
 The GCP Hardening Agent is a specialized security assistant designed to triage Google Cloud environments and generate hardening blueprints. It functions as an interactive CLI agent that automates the audit of existing infrastructure to identify vulnerabilities and deploy incremental compliance guardrails—all while grounding its decisions in the environment's live state.
 
-### Running the Agent
+### Installation
 
-The GCP Hardening Agent is an interactive assistant that automates the audit of existing infrastructure and generates hardening blueprints based on the live state of your environment.
+To install the Hardening Agent as a Gemini CLI extension, run:
 
-To run the agent, you need to perform context enrichment by exporting your GCP environment's state to BigQuery.
+```bash
+gemini extensions install https://github.com/GoogleCloudPlatform/gcp-hardening-toolkit
+```
 
-Key functionalities include:
-- **Postural Analysis**: Audits live environment state (via BigQuery) to identify vulnerabilities.
-- **IAM Audit**: Identifies over-privileged accounts and primitive role assignments.
-- **Blueprint Generation**: Automatically creates tailored Terraform blueprints for incremental hardening.
-
-For complete, step-by-step instructions on how to install, configure, and run the agent, please refer to the **[Hardening Agent README](agent/README.md)**.
+For more information on the agent's architecture, setup, and core capabilities, see the [Hardening Agent README](agent/README.md).
 
 ## Usage
 
