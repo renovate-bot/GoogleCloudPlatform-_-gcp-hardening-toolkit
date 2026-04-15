@@ -6,7 +6,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 jobs:
   release:
@@ -14,8 +13,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 0 # Fetch all history for proper git diff analysis
 
       - name: Generate Enterprise Tag
         run: |
@@ -25,69 +22,7 @@ jobs:
           echo "RELEASE_TAG=v${DATE_TAG}-${SHORT_SHA}" >> $GITHUB_ENV
           echo "SHORT_SHA=${SHORT_SHA}" >> $GITHUB_ENV
 
-      - name: Identify Release Type
-        id: release_type
-        run: |
-          # Use the last commit message to determine if this is a version bump merge
-          # or a standard code push.
-          COMMIT_MSG=$(git log -1 --pretty=%B)
-          echo "Last commit message: $COMMIT_MSG"
-          if [[ "$COMMIT_MSG" == *"chore(release):"* ]]; then
-            echo "IS_RELEASE=true" >> $GITHUB_ENV
-          else
-            echo "IS_RELEASE=false" >> $GITHUB_ENV
-          fi
-
-      - name: Check for Agent Changes
-        id: agent_check
-        run: |
-          # Use the built-in before and after SHAs for a push event to check all changed files
-          # Handle the case where the 'before' SHA might not exist (e.g., a new branch push)
-          BEFORE_SHA="${{ github.event.before }}"
-          AFTER_SHA="${{ github.event.after }}"
-
-          echo "Before SHA: ${BEFORE_SHA}"
-          echo "After SHA: ${AFTER_SHA}"
-
-          if [[ "${BEFORE_SHA}" == "0000000000000000000000000000000000000000" ]]; then
-            # If no previous commit, we can check just the current HEAD or assume change
-            CHANGES=$(git ls-files | grep -E 'agent/GEMINI.md|gemini-extension.json' || true)
-          else
-            CHANGES=$(git diff --name-only ${BEFORE_SHA} ${AFTER_SHA} | grep -E 'agent/GEMINI.md|gemini-extension.json' || true)
-          fi
-
-          echo "Detected changes in: ${CHANGES}"
-
-          if [[ -n "$CHANGES" ]]; then
-            echo "AGENT_CHANGED=true" >> $GITHUB_ENV
-          else
-            echo "AGENT_CHANGED=false" >> $GITHUB_ENV
-          fi
-
-      - name: Prepare Manifest for PR
-        if: env.IS_RELEASE == 'false' && env.AGENT_CHANGED == 'true'
-        run: |
-          # Update the version locally so the create-pull-request action picks it up
-          jq '.version = "${{ env.RELEASE_TAG }}"' gemini-extension.json > temp.json && mv temp.json gemini-extension.json
-
-      - name: Create Version Bump PR
-        if: env.IS_RELEASE == 'false' && env.AGENT_CHANGED == 'true'
-        uses: peter-evans/create-pull-request@v7
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: "chore/version-bump-${{ env.SHORT_SHA }}"
-          title: "chore(release): update version to ${{ env.RELEASE_TAG }}"
-          body: |
-            Automated manifest version update for release `${{ env.RELEASE_TAG }}`.
-
-            This PR updates `gemini-extension.json` to match the generated rolling release tag.
-            Merging this PR will trigger the final GitHub Release.
-          commit-message: "chore(release): update version to ${{ env.RELEASE_TAG }}"
-          add-paths: |
-            gemini-extension.json
-
       - name: Create Release
-        if: env.IS_RELEASE == 'true' || (env.IS_RELEASE == 'false' && env.AGENT_CHANGED == 'false')
         uses: softprops/action-gh-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
