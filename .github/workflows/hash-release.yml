@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   release:
@@ -30,6 +31,7 @@ jobs:
           # Use the last commit message to determine if this is a version bump merge
           # or a standard code push.
           COMMIT_MSG=$(git log -1 --pretty=%B)
+          echo "Last commit message: $COMMIT_MSG"
           if [[ "$COMMIT_MSG" == *"chore(release):"* ]]; then
             echo "IS_RELEASE=true" >> $GITHUB_ENV
           else
@@ -44,12 +46,17 @@ jobs:
           BEFORE_SHA="${{ github.event.before }}"
           AFTER_SHA="${{ github.event.after }}"
 
+          echo "Before SHA: ${BEFORE_SHA}"
+          echo "After SHA: ${AFTER_SHA}"
+
           if [[ "${BEFORE_SHA}" == "0000000000000000000000000000000000000000" ]]; then
             # If no previous commit, we can check just the current HEAD or assume change
             CHANGES=$(git ls-files | grep -E 'agent/GEMINI.md|gemini-extension.json' || true)
           else
             CHANGES=$(git diff --name-only ${BEFORE_SHA} ${AFTER_SHA} | grep -E 'agent/GEMINI.md|gemini-extension.json' || true)
           fi
+
+          echo "Detected changes in: ${CHANGES}"
 
           if [[ -n "$CHANGES" ]]; then
             echo "AGENT_CHANGED=true" >> $GITHUB_ENV
