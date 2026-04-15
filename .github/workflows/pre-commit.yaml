@@ -21,4 +21,10 @@ jobs:
       with:
         tflint_version: latest
 
+    - name: Make TFLint globally accessible
+      run: |
+        TFLINT_BINARY=$(which tflint)
+        sudo ln -s $TFLINT_BINARY /usr/local/bin/tflint
+        tflint --version
+
     - uses: pre-commit/action@v3.0.1
