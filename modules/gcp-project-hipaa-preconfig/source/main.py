@@ -27,7 +27,8 @@ def enable_cloud_asset_api(event, context):
             print(f"Waiting for operation {operation.name} to complete...")
             response = operation.result()
             print(
-                f"Successfully enabled Cloud Asset API for project {project_id}: {response}"
+                f"Successfully enabled Cloud Asset API for project "
+                f"{project_id}: {response}"
             )
         except Exception as e:
             print(f"Error enabling Cloud Asset API for project {project_id}: {e}")
