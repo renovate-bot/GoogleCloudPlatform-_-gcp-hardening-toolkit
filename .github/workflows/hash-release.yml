@@ -45,7 +45,7 @@ jobs:
           # Handle the case where the 'before' SHA might not exist (e.g., a new branch push)
           BEFORE_SHA="${{ github.event.before }}"
           AFTER_SHA="${{ github.event.after }}"
-          
+
           echo "Before SHA: ${BEFORE_SHA}"
           echo "After SHA: ${AFTER_SHA}"
 
@@ -55,7 +55,7 @@ jobs:
           else
             CHANGES=$(git diff --name-only ${BEFORE_SHA} ${AFTER_SHA} | grep -E 'agent/GEMINI.md|gemini-extension.json' || true)
           fi
-          
+
           echo "Detected changes in: ${CHANGES}"
 
           if [[ -n "$CHANGES" ]]; then
