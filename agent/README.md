@@ -24,6 +24,7 @@ Ensure the following tools are installed and configured:
 | gcloud CLI | Required for authentication and resource management. | >= 559.0.0 |
 | bq | Necessary for querying security telemetry in BigQuery. | >= 2.0.98 |
 | Terraform | For deploying generated hardening blueprints. | >= 1.3 |
+| Node.js & npx | Required for running local MCP servers like Storage MCP. | >= 18.0.0 |
 
 Follow these steps to bootstrap and initialize the interactive assistant:
 
@@ -74,7 +75,7 @@ Follow these steps to bootstrap and initialize the interactive assistant:
    > When authenticating using a Service Account, the **Gemini for Google Cloud API** (`cloudaicompanion.googleapis.com`) must be enabled on your target project before running the `gemini` CLI. You can enable it via the Google Cloud Console or by running: `gcloud services enable cloudaicompanion.googleapis.com --project=YOUR_PROJECT_ID`
 
 
-3. **Start the Interface:** The `gemini` CLI must be executed from the **repository root** so it can locate the `gemini-extension.json` configuration file.
+3. **Start the Interface:** The `gemini` CLI must be executed from the **repository root** so it can locate the `gemini-extension.json` configuration file and the `.gemini/settings.json` file for the Storage MCP integration.
    ```bash
    #Set your Google Cloud Project
    export GOOGLE_CLOUD_PROJECT="YOUR_PROJECT_ID"
@@ -195,13 +196,15 @@ The Hardening Agent acts as a professional security peer, providing:
 The agent operates as a Gemini CLI extension, integrating modules, discovery scripts, and user input to produce actionable security outcomes.
 
 - **Central Hub**: BigQuery (connected via Model Context Protocol - MCP) containing Cloud Asset Inventory data.
+- **Cloud Storage Access**: Connected via local Storage MCP (configured in `.gemini/settings.json`) to interact with Cloud Storage buckets.
 - **Codebase Access**: The agent is grounded in the `gcp-hardening-toolkit` repository, allowing it to read and reuse existing `modules/` and `blueprints/`.
 
 ## Core Capabilities
 
-The agent utilizes BigQuery tools to analyze the environment:
+The agent utilizes BigQuery and Storage tools to analyze the environment:
 
-- **Data Fetching**: Querying CAI resources, IAM bindings, and firewall rules.
+- **Data Fetching**: Querying CAI resources, IAM bindings, and firewall rules from BigQuery.
+- **Storage Interaction**: Reading and writing objects in Cloud Storage buckets using the Storage MCP.
 - **Misconfiguration Identification**: Identifying over-privileged accounts, open network ports, and missing security controls.
 - **Incremental Hardening**: Recommending and generating blueprints for non-disruptive remediation.
 
