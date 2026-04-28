@@ -219,3 +219,17 @@ The agent utilizes BigQuery and Storage tools to analyze the environment:
 ### State Exporter
 
 The `state-exporter` directory contains the critical scripts needed to export your GCP environment's live state for analysis. For more details, see [agent/state-exporter/README.md](state-exporter/README.md).
+
+### Queries
+
+The `queries` directory contains pre-defined BigQuery SQL scripts to help the agent understand specific conditions and dependencies in your environment. You can use these as templates or grounding context for the agent.
+- `deprecated_resources.sql`: Identifies old or unchanged resources.
+- `service_accounts_with_keys.sql`: Lists service accounts with user-managed keys.
+- `vpc_sc_perimeters.sql`: Details VPC Service Control perimeters.
+- `primitive_roles_audit.sql`: Identifies users or service accounts with primitive roles (Owner, Editor).
+- `external_identity_exposure.sql`: Identifies IAM bindings granted to external identities.
+- `broad_firewall_rules.sql`: Identifies firewall rules that allow traffic from anywhere (0.0.0.0/0).
+- `public_buckets.sql`: Identifies Cloud Storage buckets with public access.
+- `orphaned_ips.sql`: Identifies static external IP addresses that are not attached to any resource.
+- `missing_cmek.sql`: Identifies Compute Engine instances with disks not using CMEK.
+- `shielded_vms.sql`: Identifies Compute Engine instances with Shielded VM features disabled.
