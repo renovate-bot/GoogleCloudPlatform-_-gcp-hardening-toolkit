@@ -1,10 +1,10 @@
 # GCP Hardening Toolkit (GHT)
 
-![Terraform](https://img.shields.io/badge/Terraform-%3E%3D1.3-935ADA)
-![Python](https://img.shields.io/badge/Python-3.x-3776AB)
-![Bash](https://img.shields.io/badge/Bash-Shell-4EAA25)
-![License](https://img.shields.io/badge/License-Apache%202.0-blue)
-![Release](https://img.shields.io/badge/Release-Rolling-4B5563)
+![Terraform](https://img.shields.io/badge/Terraform-%3E%3D1.3-935ADA?style=for-the-badge&logo=terraform&logoColor=white)
+![Python](https://img.shields.io/badge/Python-3.x-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![Bash](https://img.shields.io/badge/Bash-Shell-4EAA25?style=for-the-badge&logo=gnu-bash&logoColor=white)
+![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge)
+[![Technical Guides](https://img.shields.io/badge/YouTube-Technical_Guides-CD201F?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=hrbTj3YUhlQ&list=PLJKGPxH0mLCrZDBQbSAGP8O_ig2o4iZM9&index=1)
 
 The GCP Hardening Toolkit (GHT) is an automated triage and remediation engine designed to safely manage security debt in complex, active (brownfield) Google Cloud environments.
 
