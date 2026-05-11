@@ -41,9 +41,9 @@ gcp-hardening-toolkit/
     - **Minimal Wrappers**: Modules are usually thin layers over Terraform resources.
     - **Value Add**: Abstraction is only added when it provides clear value (e.g., enforcing policy constraints).
 
-## Features (Pillars)
+## Features (Categories)
 
-The toolkit is organized into five core pillars:
+The toolkit is organized into six core categories:
 
 1.  **Foundations** (`gcp-foundation`):
     Rapidly provisions core controls (IAM engineering standards, Org Policies, SCC enablement) to facilitate security research and testing.
@@ -59,6 +59,9 @@ The toolkit is organized into five core pillars:
 
 5.  **Triage** (`gcp-triage`):
     Automates investigation and decision-making for security alerts, reducing alert fatigue.
+
+6.  **Demo** (`gcp-demo`):
+    Provides sandbox environments and vulnerable-by-design labs to demonstrate security tools and hardening effects.
 
 ## GHT vs. Cloud Foundation Toolkit (CFT)
 
