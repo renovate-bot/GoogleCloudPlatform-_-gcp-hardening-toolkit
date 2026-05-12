@@ -28,13 +28,13 @@ FULLY_QUALIFIED_TABLE="projects/${BILLING_PROJECT}/datasets/${DATASET_NAME}/tabl
 IAM_TABLE_NAME="org_iam_policy_${TIMESTAMP}"
 FULLY_QUALIFIED_IAM_TABLE="projects/${BILLING_PROJECT}/datasets/${DATASET_NAME}/tables/${IAM_TABLE_NAME}"
 
-echo "Initiating Organization-wide CAI resource export for Org: ${ORG_ID}..."
+echo "Initiating Organization-wide full CAI resource export for Org: ${ORG_ID}..."
 
-# Fixed: Explicit multi-line alignment with no trailing spaces
+# Fixed: Removed the --asset-types restriction entirely.
+# This exports ALL organizational resources (including Access Context Manager) without triggering project-level validation crashes.
 EXPORT_OUT=$(gcloud asset export \
   --organization="${ORG_ID}" \
   --billing-project="${BILLING_PROJECT}" \
-  --asset-types="compute.googleapis.com/Instance,compute.googleapis.com/Firewall,compute.googleapis.com/Address,iam.googleapis.com/ServiceAccount,iam.googleapis.com/ServiceAccountKey,accesscontextmanager.googleapis.com/ServicePerimeter,accesscontextmanager.googleapis.com/AccessLevel,storage.googleapis.com/Bucket" \
   --content-type=resource \
   --bigquery-table="${FULLY_QUALIFIED_TABLE}" \
   --output-bigquery-force 2>&1)
@@ -45,7 +45,6 @@ OP_PATH=$(echo "$EXPORT_OUT" | grep -oE "organizations/[0-9]+/operations/ExportA
 
 echo "Initiating Organization-wide CAI IAM policy export for Org: ${ORG_ID}..."
 
-# Fixed: Explicit multi-line alignment with no trailing spaces
 EXPORT_IAM_OUT=$(gcloud asset export \
   --organization="${ORG_ID}" \
   --billing-project="${BILLING_PROJECT}" \
@@ -84,7 +83,6 @@ GCS_PATH="gs://${BUCKET_NAME}/${FILE_NAME}"
 
 echo "Initiating Organization-wide SCC findings export for Org: ${ORG_ID} to ${GCS_PATH} using SCC V2 API..."
 
-# Fixed: Added backslashes to continue the multi-line gcloud command properly
 gcloud scc findings list "organizations/${ORG_ID}" \
   --location="global" \
   --billing-project="${BILLING_PROJECT}" \
