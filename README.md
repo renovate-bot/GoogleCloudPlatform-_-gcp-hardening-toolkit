@@ -18,8 +18,6 @@ The repository follows a **Library + Blueprints** architecture, decoupled to all
 gcp-hardening-toolkit/
 ├── agent/                      # agentic solution for automated hardening
 │   ├── custom-role-creation/   # custom IAM role definitions (least privilege)
-│   └── state-exporter/
-│       └── ...
 ├── blueprints/                 # deployable solutions (stateful)
 │   ├── gcp-foundation-org-iam/
 │   └── ...

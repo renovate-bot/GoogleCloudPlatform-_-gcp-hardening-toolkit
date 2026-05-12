@@ -28,7 +28,7 @@ Ensure the following tools are installed and configured:
 
 Follow these steps to bootstrap and initialize the interactive assistant:
 
-1. **Export Telemetry Context (Must be run BEFORE starting the agent):** Navigate to `agent/state-exporter` and run the appropriate script to dump your environment's context.
+1. **Export Telemetry Context (Must be run BEFORE starting the agent):** Navigate to `blueprints/agent-setup/state-exporter` and run the appropriate script to dump your environment's context.
 
    > [!IMPORTANT]
    > These export scripts **must be executed before** running the agent.
@@ -36,25 +36,25 @@ Follow these steps to bootstrap and initialize the interactive assistant:
 
    **Option A: Project-Level Asset Export (Default)**
    ```bash
-   cd agent/state-exporter
+   cd blueprints/agent-setup/state-exporter
    ./export_cai_state.sh YOUR_PROJECT_ID
    ```
 
    **Option B: Organization-Level Asset Export**
    ```bash
-   cd agent/state-exporter
+   cd blueprints/agent-setup/state-exporter
    ./export_cai_org_state.sh YOUR_ORG_ID YOUR_BILLING_PROJECT_ID
    ```
 
    **Option C: Project-Level Security Command Center (SCC) Export**
    ```bash
-   cd agent/state-exporter
+   cd blueprints/agent-setup/state-exporter
    ./export_scc_state.sh YOUR_GCP_PROJECT_ID [OPTIONAL_GCS_BUCKET_NAME]
    ```
 
    **Option D: Organization-Level Security Command Center (SCC) Export**
    ```bash
-   cd agent/state-exporter
+   cd blueprints/agent-setup/state-exporter
    ./export_scc_org_state.sh YOUR_ORG_ID YOUR_BILLING_PROJECT_ID [OPTIONAL_GCS_BUCKET_NAME]
    ```
 
@@ -65,21 +65,21 @@ Follow these steps to bootstrap and initialize the interactive assistant:
    gcloud auth application-default login
    ```
 
-   **Option B: Service Account JSON Key**
-   To authenticate using a Service Account JSON key:
+   **Option B: Service Account Impersonation (Recommended for Least Privilege)**
+   To authenticate using Service Account impersonation (if JSON keys are disabled):
    ```bash
-   export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/service-account-key.json"
+   gcloud auth application-default login --impersonate-service-account=hardening-agent-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com
    ```
 
    > [!NOTE]
-   > When authenticating using a Service Account, the **Gemini for Google Cloud API** (`cloudaicompanion.googleapis.com`) must be enabled on your target project before running the `gemini` CLI. You can enable it via the Google Cloud Console or by running: `gcloud services enable cloudaicompanion.googleapis.com --project=YOUR_PROJECT_ID`
+   > When authenticating using a Service Account (impersonated or via key), the **Gemini for Google Cloud API** (`cloudaicompanion.googleapis.com`) must be enabled on your target project before running the `gemini` CLI. You can enable it via the Google Cloud Console or by running: `gcloud services enable cloudaicompanion.googleapis.com --project=YOUR_PROJECT_ID`
 
 
-3. **Start the Interface:** The `gemini` CLI must be executed from the **repository root** so it can locate the `gemini-extension.json` configuration file and the `.gemini/settings.json` file for the Storage MCP integration.
+3. **Start the Interface:** The `gemini` CLI must be executed from the **repository root** so it can locate the `gemini-extension.json` configuration file.
    ```bash
    #Set your Google Cloud Project
    export GOOGLE_CLOUD_PROJECT="YOUR_PROJECT_ID"
-   gemini extensions link . #This command will link the gemini-extension.json to your Gemini environment
+   gemini extensions link . # This links the agent as a local extension
    gemini
    ```
 
@@ -114,75 +114,27 @@ The GCP Hardening Agent is designed for interactive use. It does not possess con
 - **Manual Blueprint Review**: Manually inspect any generated Terraform blueprints before deployment.
 - **No Unattended CI/CD**: Do not integrate the agent into fully automated pipelines without a human-in-the-loop approval stage.
 
-### Service Account Creation
+### Automated Agent Infrastructure Setup (Recommended)
 
-> [!NOTE]
-> Creating a dedicated Service Account is only necessary if you plan to authenticate the agent using **Option B** (Service Account JSON Key).
+To simplify the setup while maintaining the principle of least privilege, use the provided Terraform blueprint. This will automatically create the Service Account, the restricted custom IAM role, and the BigQuery telemetry dataset.
 
-Create the restricted Service Account within your project:
+1. **Navigate to the setup blueprint:**
+   ```bash
+   cd blueprints/agent-setup
+   ```
 
-```bash
-gcloud iam service-accounts create hardening-agent-sa \
-    --description="Service account for GCP Hardening Agent" \
-    --display-name="GCP Hardening Agent SA" \
-    --project=YOUR_PROJECT_ID
-```
-Replace `YOUR_PROJECT_ID` with your project's ID.
+2. **Initialize and Apply:**
+   ```bash
+   terraform init
+   # Create a terraform.tfvars file with your project_id
+   terraform apply
+   ```
 
-### Resource Permissions (Scoping)
+3. **Follow the Output Instructions:**
+   The Terraform output will provide the exact `gcloud` commands to download your Service Account key and trigger the initial data export.
 
-Grant the Service Account the specific IAM roles required. You can choose between creating a custom role for least privilege or using predefined roles if you prefer not to create custom roles.
+---
 
-#### Approach 1: Least Privilege (Recommended)
-
-This approach uses a restricted custom role with minimal BigQuery permissions.
-
-> [!NOTE]
-> To create the custom role, the Identity and Access Management (IAM) API (`iam.googleapis.com`) must be enabled on the project.
-
-1. **Create the custom role:**
-
-```bash
-# If running from the repository root
-gcloud iam roles create hardeningAgentViewer \
-    --project=YOUR_PROJECT_ID \
-    --file=agent/custom-role-creation/hardening-viewer-role.yaml
-```
-Replace `YOUR_PROJECT_ID` with your project's ID.
-
-2. **Bind the custom role to the Service Account:**
-
-```bash
-gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
-    --member="serviceAccount:hardening-agent-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
-    --role="projects/YOUR_PROJECT_ID/roles/hardeningAgentViewer" # pragma: allowlist secret
-```
-
-3. **Bind the predefined role for MCP tool usage (required for agent tools):**
-```bash
-gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
-    --member="serviceAccount:hardening-agent-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
-    --role="roles/mcp.toolUser"
-```
-
-#### Approach 2: Predefined Roles (Alternative)
-
-If you prefer not to create custom roles, you can use standard predefined roles. Note that this grants broader permissions than the custom role.
-
-1. **Bind the BigQuery User role to the Service Account:**
-
-```bash
-gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
-    --member="serviceAccount:hardening-agent-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
-    --role="roles/bigquery.user"
-```
-
-2. **Bind the predefined role for MCP tool usage (required for agent tools):**
-```bash
-gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
-    --member="serviceAccount:hardening-agent-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
-    --role="roles/mcp.toolUser"
-```
 ## Role & Expertise
 
 The Hardening Agent acts as a professional security peer, providing:
@@ -218,7 +170,7 @@ The agent utilizes BigQuery and Storage tools to analyze the environment:
 
 ### State Exporter
 
-The `state-exporter` directory contains the critical scripts needed to export your GCP environment's live state for analysis. For more details, see [agent/state-exporter/README.md](state-exporter/README.md).
+The `state-exporter` directory contains the critical scripts needed to export your GCP environment's live state for analysis. For more details, see [blueprints/agent-setup/state-exporter/README.md](../blueprints/agent-setup/state-exporter/README.md).
 
 ### Queries
 
