@@ -6,168 +6,91 @@
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge)
 [![Technical Guides](https://img.shields.io/badge/YouTube-Technical_Guides-CD201F?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=hrbTj3YUhlQ&list=PLJKGPxH0mLCrZDBQbSAGP8O_ig2o4iZM9&index=1)
 
-The GCP Hardening Toolkit (GHT) is an automated triage and remediation engine designed to safely manage security debt in complex, active (brownfield) Google Cloud environments.
+Standard foundational toolkits assume a clean slate. The reality is you are likely dealing with active, undocumented, and messy infrastructure (brownfield environments).
 
-While standard foundational toolkits provide blueprints for building from scratch, GHT is engineered for the realities of existing infrastructure. It combines state-aware Infrastructure as Code (IaC) with active triage automation, empowering security task forces to rapidly audit environments, identify vulnerabilities, and deploy incremental compliance guardrails—without disrupting active DevOps pipelines.
+The **GCP Hardening Toolkit (GHT)** is an automated triage and remediation engine built for this exact reality. Its core component is the **Hardening Agent**—an interactive CLI assistant that audits your live environment, identifies security debt, and deploys incremental compliance guardrails using state-aware Infrastructure as Code (IaC) without disrupting active DevOps pipelines.
 
-## Repository Structure
+---
 
-The repository follows a **Library + Blueprints** architecture, decoupled to allow flexible composition.
+## The Hardening Agent
 
-```text
-gcp-hardening-toolkit/
-├── agent/                      # agentic solution for automated hardening
-├── blueprints/                 # deployable solutions (stateful)
-│   ├── agent-setup/            # agent specific setup blueprint (IAM, BQ dataset, etc.)
-│   ├── gcp-foundation-org-iam/
-│   └── ...
-├── modules/                    # reusable components (stateless)
-│   ├── gcp-iam-groups/
-│   └── gcp-custom-constraints/ # org policy constraints
-└── docs/                       # detailed documentation
+The Hardening Agent is the brain of the toolkit. Instead of blindly enforcing restrictive policies, it reads your current infrastructure state, analyzes existing vulnerabilities, and generates targeted, safe Terraform blueprints to fix them.
+
+### 1. Prerequisite: Agent Setup Blueprint
+Because the Agent grounds its decisions in your live environment data, you must first deploy its restricted infrastructure.
+
+Navigate to `blueprints/agent-setup/` and deploy the setup blueprint. This provisions the least-privilege Service Account, BigQuery datasets, and Cloud Storage buckets the agent needs, alongside the exact bash scripts (`export_org_state.sh` / `export_project_state.sh`) required to safely dump your Cloud Asset Inventory (CAI) and Security Command Center (SCC) data for analysis.
+
+### 2. Installation
+Install the Hardening Agent as a Gemini CLI extension:
+
+```bash
+gemini extensions install [https://github.com/GoogleCloudPlatform/gcp-hardening-toolkit](https://github.com/GoogleCloudPlatform/gcp-hardening-toolkit)
 ```
+*For complete architecture and command details, see the [Hardening Agent Documentation](agent/README.md).*
 
-### Design Principles
+---
 
-- **Separation of Concerns**
-    - **Modules**: Encapsulate logic and resources (implementation).
-    - **Blueprints**: Handle orchestration and state (composition).
-- **Adaptability**
-    - **Reference Architectures**: Blueprints are production-ready but malleable.
-    - **Customization**: Users are encouraged to modify Blueprints to fit their specific requirements.
-- **Directness**
-    - **Minimal Wrappers**: Modules are usually thin layers over Terraform resources.
-    - **Value Add**: Abstraction is only added when it provides clear value (e.g., enforcing policy constraints).
+## The Toolkit Payload (Blueprints & Modules)
 
-## Features (Categories)
+The repository provides the raw materials the Agent uses to secure your environment. It is decoupled into two main layers:
 
-The toolkit is organized into six core categories:
+*   **Modules (`modules/`):** Reusable, stateless, and minimal wrappers around Terraform resources (e.g., specific org policy constraints).
+*   **Blueprints (`blueprints/`):** Deployable, stateful solutions built from modules. The Agent generates or modifies these to fit your specific requirements.
 
-1.  **Foundations** (`gcp-foundation`):
-    Rapidly provisions core controls (IAM engineering standards, Org Policies, SCC enablement) to facilitate security research and testing.
+### Core Capabilities
 
-2.  **Compliance** (`gcp-compliance`):
-    Delivers ultra-fast, frictionless compliance by deploying comprehensive security measures in a single run (e.g., HIPAA).
+*   **Triage & Remediation:** Automate investigation and decision-making for SCC alerts, reducing alert fatigue and manual review.
+*   **Targeted Constraints:** Block lateral movement by deploying precise Org Policies (e.g., restricting service account creation) only where safe.
+*   **Frictionless Compliance:** Deploy comprehensive security baselines (like HIPAA or PCI-DSS guardrails) incrementally.
+*   **Advanced Detection:** Extend native GCP observability with custom threat detection pipelines and log routing.
 
-3.  **Constraints** (`gcp-constraint`):
-    Secures the environment against lateral movement by enforcing advanced hardening constraints (e.g., blocking service account creation).
-
-4.  **Detection** (`gcp-detection`):
-    Extends native observability with custom threat detection pipelines and advanced log routing to spot anomalies instantly.
-
-5.  **Triage** (`gcp-triage`):
-    Automates investigation and decision-making for security alerts, reducing alert fatigue.
-
-6.  **Demo** (`gcp-demo`):
-    Provides sandbox environments and vulnerable-by-design labs to demonstrate security tools and hardening effects.
+---
 
 ## GHT vs. Cloud Foundation Toolkit (CFT)
 
-We get this question a lot, so let's make the difference between the GCP Hardening Toolkit (GHT) and the Cloud Foundation Toolkit (CFT) CRYSTAL CLEAR.
+If you are building a new Google Cloud organization from scratch (greenfield), use the [Cloud Foundation Toolkit (CFT)](https://github.com/GoogleCloudPlatform/cloud-foundation-toolkit).
 
-While GHT includes several foundational examples, these are meant to be thin and leverage CFT to deploy standard infrastructure. GHT is an open-source tool built with a completely different vision and utility in mind.
+**Use GHT if:**
+* You are conducting a Cloud Security Posture Review (CSPR) and need to fix active, messy infrastructure.
+* You need to accelerate compliance but cannot afford to break current production operations.
+* You want an automated agent to do the heavy lifting of mapping dependencies before applying restrictive policies.
 
-### The Core Difference: Brownfield vs. Greenfield
-
-*   **CFT** is the gold standard for **greenfield** deployments. It provides excellent blueprints for building from scratch. While tools like CFT Scorecard can audit an existing environment to tell you what is broken, its primary utility is establishing a baseline.
-*   **GHT** is engineered for **brownfield** environments. It is built for scenarios where infrastructure is already deployed, messy, and has a lot of room for security improvement. GHT doesn't just evaluate; it actively remediates.
-
-### The Pain Point GHT Solves
-
-When teams conduct a Cloud Security Posture Review (CSPR), they get a clear picture of their security posture. But knowing the problems you have doesn't mean you know how to solve them without breaking production.
-
-Usually, security teams must manually review the environment, negotiate with stakeholders, and implement restrictive policies while trying not to disrupt DevOps. This causes tremendous operational friction.
-
-### The GHT Advantage: Triage and State-Aware Remediation
-
-GHT is the engine that handles the heavy lifting of security debt and accelerates your path to compliance.
-
-*   **Targeted Guardrails vs. Broad Enforcement:** CFT provides modules to enforce Organization Policies broadly. GHT provides the triage tools to figure out *how* to apply those guardrails in a running environment incrementally.
-*   **State-Aware IaC & Triage Automation:** Unlike standard foundations that assume a clean slate, GHT uses state-aware IaC combined with specialized triage scripts. This allows you to deploy security without destroying existing configurations.
-*   **Automated Execution:** Deploying foundations in brownfield environments is traditionally a manual, tedious process. GHT automates this by taking the current state, existing infrastructure, **and standard CFT modules** as its grounding input to bridge the gap to a hardened state.
-
-For greenfield, GHT's use is mostly limited to creating compliance guardrails—a crucial 2nd layer of security. But for brownfield, GHT's automated triage and non-disruptive remediation are the features that define its utility.
-
----
-
-### Summary Comparison
-
-| Feature | Cloud Foundation Toolkit (CFT) | GCP Hardening Toolkit (GHT) |
+| Feature | Cloud Foundation Toolkit (CFT) | GCP Hardening Agent & Toolkit (GHT) |
 | :--- | :--- | :--- |
-| **Primary Use Case** | **Greenfield:** Building new infrastructure from scratch. | **Brownfield:** Triaging and hardening existing environments. |
-| **Core Assets** | Static Terraform Blueprints & Modules. | State-Aware IaC, Triage Scripts & Deployable Guardrails. |
-| **Environment State** | Assumes a "clean slate" standard state. | Grounded in the **current state** (respects existing tech debt). |
+| **Primary Use Case** | Building new infrastructure (Greenfield). | Triaging and hardening active environments (Brownfield). |
+| **Execution** | Static Terraform Blueprints. | Automated Agent + State-Aware IaC. |
+| **Environment State** | Assumes a standard "clean slate". | Reads and respects your live, current state and tech debt. |
 | **Guardrail Strategy** | Broad, top-down baseline enforcement. | Targeted, triage-based incremental enforcement. |
-| **Compliance Focus** | Policy Monitoring & Auditing (e.g., Scorecard). | Active Remediation & Debt Reduction. |
-| **DevOps Friction** | High, if forced onto existing messy infrastructure. | Low, designed to fix issues without disrupting active ops. |
+| **DevOps Friction** | High (if forced onto existing infra). | Low (fixes issues without breaking apps). |
 
 ---
 
-### When to check out CFT
-You should check out the [Cloud Foundation Toolkit](https://github.com/GoogleCloudPlatform/cloud-foundation-toolkit) if:
-* You are starting a brand new Google Cloud organization.
-* You need general-purpose, foundational blueprints (VPCs, Projects, Folders).
-* You want to audit your current state against baseline policies.
+## Usage Workflow
 
-### When to use GHT
-Use this open-source toolkit if:
-* You are conducting a CSPR and need to actively fix an existing environment.
-* You need to accelerate the path to compliance across any framework by managing security debt.
-* You want to search for low-hanging security fruits and implement incremental guardrails without breaking current operations.
+If you are not using the interactive Hardening Agent, you can deploy blueprints manually:
 
-## Hardening Agent
-
-The GCP Hardening Agent is a specialized security assistant designed to triage Google Cloud environments and generate hardening blueprints. It functions as an interactive CLI agent that automates the audit of existing infrastructure to identify vulnerabilities and deploy incremental compliance guardrails—all while grounding its decisions in the environment's live state.
-
-### Installation
-
-To install the Hardening Agent as a Gemini CLI extension, run:
-
-```bash
-gemini extensions install https://github.com/GoogleCloudPlatform/gcp-hardening-toolkit
-```
-
-For more information on the agent's architecture, setup, and core capabilities, see the [Hardening Agent README](agent/README.md).
-
-## Usage
-
-### Workflow
-
-1.  **Select a Blueprint**: Choose a solution from `blueprints/` that matches your goal.
-2.  **Customize**: Blueprints come with their own `examples` or default `variables`.
-3.  **Deploy**: Authenticate and run Terraform within the blueprint directory.
-
+1.  **Select:** Choose a solution from `blueprints/` that matches your tactical goal.
+2.  **Customize:** Review the `examples` or adjust the `variables.tf` to fit your scope.
+3.  **Execute:**
 ```bash
 cd blueprints/gcp-foundation-org-iam
 terraform init
 terraform apply
 ```
 
-### Helper Scripts
+## Release Cycle & Supply Chain Security
 
-- **Bash Scripts**: For one-time setup tasks (e.g., enabling SCC services, checking VPC-SC violations).
-- **Python Scripts**: Used within Cloud Functions for advanced logic (e.g., automated project creation enforcement).
-
-## Release Cycle & Versioning
-
-We use a **Rolling Release** model (no semantic versioning). Every commit to `main` is stable.
-
-### Hash Pinning (Supply Chain Security)
-
-We strongly recommend pinning modules to a specific commit hash for production environments. This prevents unintended updates and protects against potential supply chain compromises.
+We use a **Rolling Release** model. Every commit to `main` is stable. To protect your production environments from unintended updates, **always pin modules to a specific commit hash**:
 
 ```hcl
 module "gcp_hardening" {
-  source = "github.com/GoogleCloudPlatform/gcp-hardening-toolkit//modules/gcp-org-policies?ref=<COMMIT_HASH>"
+  source = "[github.com/GoogleCloudPlatform/gcp-hardening-toolkit//modules/gcp-org-policies?ref=](https://github.com/GoogleCloudPlatform/gcp-hardening-toolkit//modules/gcp-org-policies?ref=)<COMMIT_HASH>"
 }
 ```
 
-## Contributing
+## Contributing & Feedback
+Contributions are welcome. See our [Contributing Guide](docs/contributing.md) for rules of engagement.
 
-Contributions are welcome! Please refer to our [Contributing Guide](docs/contributing.md) for details.
-
-## Feedback
-
-Your feedback helps us prioritize features and improve the toolkit. Please share your experience via our brief survey.
-
+To help us prioritize automation features and improve the agent, please share your operational feedback.
 [Take the 1-Minute Survey](https://forms.gle/LmgxXbJBoqu91dyA9)
