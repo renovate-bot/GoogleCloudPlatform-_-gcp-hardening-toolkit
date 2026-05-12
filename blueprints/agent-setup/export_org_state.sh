@@ -23,7 +23,6 @@ bq mk --force --dataset "${BILLING_PROJECT}:${DATASET_NAME}" 2>/dev/null || true
 
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 TABLE_NAME="org_cai_state_${TIMESTAMP}"
-# Note: The table path for Org exports uses the 'projects/...' syntax for the destination
 FULLY_QUALIFIED_TABLE="projects/${BILLING_PROJECT}/datasets/${DATASET_NAME}/tables/${TABLE_NAME}"
 
 IAM_TABLE_NAME="org_iam_policy_${TIMESTAMP}"
@@ -31,32 +30,31 @@ FULLY_QUALIFIED_IAM_TABLE="projects/${BILLING_PROJECT}/datasets/${DATASET_NAME}/
 
 echo "Initiating Organization-wide CAI resource export for Org: ${ORG_ID}..."
 
-# We use --organization and --billing-project to cross the project boundary
-EXPORT_OUT=$(gcloud asset export
-  --organization="${ORG_ID}"
-  --billing-project="${BILLING_PROJECT}"
-  --asset-types="compute.googleapis.com/Instance,compute.googleapis.com/Firewall,compute.googleapis.com/Address,iam.googleapis.com/ServiceAccount,iam.googleapis.com/ServiceAccountKey,accesscontextmanager.googleapis.com/ServicePerimeter,accesscontextmanager.googleapis.com/AccessLevel,storage.googleapis.com/Bucket"
-  --content-type=resource
-  --bigquery-table="${FULLY_QUALIFIED_TABLE}"
+# Fixed: Explicit multi-line alignment with no trailing spaces
+EXPORT_OUT=$(gcloud asset export \
+  --organization="${ORG_ID}" \
+  --billing-project="${BILLING_PROJECT}" \
+  --asset-types="compute.googleapis.com/Instance,compute.googleapis.com/Firewall,compute.googleapis.com/Address,iam.googleapis.com/ServiceAccount,iam.googleapis.com/ServiceAccountKey,accesscontextmanager.googleapis.com/ServicePerimeter,accesscontextmanager.googleapis.com/AccessLevel,storage.googleapis.com/Bucket" \
+  --content-type=resource \
+  --bigquery-table="${FULLY_QUALIFIED_TABLE}" \
   --output-bigquery-force 2>&1)
 
 echo "$EXPORT_OUT"
 
-# Extract Operation Path with support for underscores
 OP_PATH=$(echo "$EXPORT_OUT" | grep -oE "organizations/[0-9]+/operations/ExportAssets/[a-zA-Z_]+/[a-f0-9]+")
 
 echo "Initiating Organization-wide CAI IAM policy export for Org: ${ORG_ID}..."
 
-EXPORT_IAM_OUT=$(gcloud asset export
-  --organization="${ORG_ID}"
-  --billing-project="${BILLING_PROJECT}"
-  --content-type=iam-policy
-  --bigquery-table="${FULLY_QUALIFIED_IAM_TABLE}"
+# Fixed: Explicit multi-line alignment with no trailing spaces
+EXPORT_IAM_OUT=$(gcloud asset export \
+  --organization="${ORG_ID}" \
+  --billing-project="${BILLING_PROJECT}" \
+  --content-type=iam-policy \
+  --bigquery-table="${FULLY_QUALIFIED_IAM_TABLE}" \
   --output-bigquery-force 2>&1)
 
 echo "$EXPORT_IAM_OUT"
 
-# Extract Operation Path for IAM export
 OP_PATH_IAM=$(echo "$EXPORT_IAM_OUT" | grep -oE "organizations/[0-9]+/operations/ExportAssets/[a-zA-Z_]+/[a-f0-9]+")
 
 if [[ -z "$OP_PATH" ]] || [[ -z "$OP_PATH_IAM" ]]; then
@@ -66,8 +64,8 @@ fi
 
 echo "----------------------------------------------------------------"
 echo "Org CAI Exports Triggered successfully."
-echo "To check resource export status: gcloud asset operations describe "${OP_PATH}" --billing-project="${BILLING_PROJECT}""
-echo "To check IAM policy export status: gcloud asset operations describe "${OP_PATH_IAM}" --billing-project="${BILLING_PROJECT}""
+echo "To check resource export status: gcloud asset operations describe \"${OP_PATH}\" --billing-project=\"${BILLING_PROJECT}\""
+echo "To check IAM policy export status: gcloud asset operations describe \"${OP_PATH_IAM}\" --billing-project=\"${BILLING_PROJECT}\""
 echo "Data destinations:"
 echo "  Resource Table: ${BILLING_PROJECT}.${DATASET_NAME}.${TABLE_NAME}"
 echo "  IAM Policy Table: ${BILLING_PROJECT}.${DATASET_NAME}.${IAM_TABLE_NAME}"
@@ -86,11 +84,10 @@ GCS_PATH="gs://${BUCKET_NAME}/${FILE_NAME}"
 
 echo "Initiating Organization-wide SCC findings export for Org: ${ORG_ID} to ${GCS_PATH} using SCC V2 API..."
 
-# List findings in JSON format and stream to GCS
-# Added --location=global to force usage of SCC V2 API.
-gcloud scc findings list "organizations/${ORG_ID}"
-  --location="global"
-  --billing-project="${BILLING_PROJECT}"
+# Fixed: Added backslashes to continue the multi-line gcloud command properly
+gcloud scc findings list "organizations/${ORG_ID}" \
+  --location="global" \
+  --billing-project="${BILLING_PROJECT}" \
   --format="json" > "/tmp/${FILE_NAME}"
 
 if [[ $? -ne 0 ]]; then
@@ -109,4 +106,4 @@ else
   exit 1
 fi
 
-rm "/tmp/${FILE_NAME}"
+rm -f "/tmp/${FILE_NAME}"

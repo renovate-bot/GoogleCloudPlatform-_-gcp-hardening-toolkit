@@ -2,13 +2,13 @@
 # Script Name: export_project_state.sh
 # Purpose: Zero-touch CAI and SCC state export with deterministic execution validation.
 
-PROJECT_ID=${1:-}
-DATASET_NAME=${2:-}
-BUCKET_NAME=${3:-}
+DATASET_NAME=${1:-}
+BUCKET_NAME=${2:-}
+PROJECT_ID=${3:-}
 
-if [[ -z "$PROJECT_ID" ]] || [[ -z "$DATASET_NAME" ]] || [[ -z "$BUCKET_NAME" ]]; then
-  echo "Execution aborted: Project ID, Dataset Name, and Bucket Name are required."
-  echo "Usage: $0 <PROJECT_ID> <DATASET_NAME> <BUCKET_NAME>"
+if [[ -z "$DATASET_NAME" ]] || [[ -z "$BUCKET_NAME" ]] || [[ -z "$PROJECT_ID" ]]; then
+  echo "Execution aborted: Dataset Name, Bucket Name, and Project ID are required."
+  echo "Usage: $0 <DATASET_NAME> <BUCKET_NAME> <PROJECT_ID>"
   exit 1
 fi
 
@@ -29,12 +29,11 @@ FULLY_QUALIFIED_IAM_TABLE="projects/${PROJECT_ID}/datasets/${DATASET_NAME}/table
 
 echo "Initiating CAI batch export to BigQuery table: ${DATASET_NAME}.${TABLE_NAME}..."
 
-# Execute the resource export and capture the asynchronous output
-EXPORT_OUT=$(gcloud asset export
-  --project="${PROJECT_ID}"
-  --asset-types="compute.googleapis.com/Instance,compute.googleapis.com/Firewall,iam.googleapis.com/ServiceAccount"
-  --content-type=resource
-  --bigquery-table="${FULLY_QUALIFIED_TABLE}"
+EXPORT_OUT=$(gcloud asset export \
+  --project="${PROJECT_ID}" \
+  --asset-types="compute.googleapis.com/Instance,compute.googleapis.com/Firewall,iam.googleapis.com/ServiceAccount" \
+  --content-type=resource \
+  --bigquery-table="${FULLY_QUALIFIED_TABLE}" \
   --output-bigquery-force 2>&1)
 
 # Echo the output so you have visibility
@@ -45,11 +44,10 @@ OP_PATH=$(echo "$EXPORT_OUT" | grep -oE "projects/[0-9]+/operations/ExportAssets
 
 echo "Initiating IAM policy export to BigQuery table: ${DATASET_NAME}.${IAM_TABLE_NAME}..."
 
-# Execute the IAM export and capture the asynchronous output
-EXPORT_IAM_OUT=$(gcloud asset export
-  --project="${PROJECT_ID}"
-  --content-type=iam-policy
-  --bigquery-table="${FULLY_QUALIFIED_IAM_TABLE}"
+EXPORT_IAM_OUT=$(gcloud asset export \
+  --project="${PROJECT_ID}" \
+  --content-type=iam-policy \
+  --bigquery-table="${FULLY_QUALIFIED_IAM_TABLE}" \
   --output-bigquery-force 2>&1)
 
 # Echo the output so you have visibility
@@ -64,8 +62,8 @@ if [[ -z "$OP_PATH" ]] || [[ -z "$OP_PATH_IAM" ]]; then
 fi
 
 echo "CAI Exports triggered."
-echo "To check resource export status: gcloud asset operations describe "${OP_PATH}""
-echo "To check IAM policy export status: gcloud asset operations describe "${OP_PATH_IAM}""
+echo "To check resource export status: gcloud asset operations describe \"${OP_PATH}\""
+echo "To check IAM policy export status: gcloud asset operations describe \"${OP_PATH_IAM}\""
 echo "Once operations are complete, tables ${DATASET_NAME}.${TABLE_NAME} and ${DATASET_NAME}.${IAM_TABLE_NAME} will be populated."
 
 # --- SCC Export ---
@@ -82,11 +80,8 @@ GCS_PATH="gs://${BUCKET_NAME}/${FILE_NAME}"
 
 echo "Exporting SCC findings for project ${PROJECT_ID} to ${GCS_PATH} using SCC V2 API..."
 
-# List findings in JSON format and stream to GCS
-# Correct syntax: gcloud scc findings list "projects/${PROJECT_ID}"
-# Added --location=global to force usage of SCC V2 API, as V1 is being deprecated.
-gcloud scc findings list "projects/${PROJECT_ID}"
-  --location="global"
+gcloud scc findings list "projects/${PROJECT_ID}" \
+  --location="global" \
   --format="json" > "/tmp/${FILE_NAME}"
 
 if [[ $? -ne 0 ]]; then
@@ -105,4 +100,4 @@ else
   exit 1
 fi
 
-rm "/tmp/${FILE_NAME}"
+rm -f "/tmp/${FILE_NAME}"
