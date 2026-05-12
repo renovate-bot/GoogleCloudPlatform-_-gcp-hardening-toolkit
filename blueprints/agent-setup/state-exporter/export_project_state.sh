@@ -27,14 +27,12 @@ DATASET_ID=$3
 CAI_TABLE_ID="cai_resource_inventory"
 SCC_TABLE_ID="scc_findings"
 
-echo "Arguments: PROJECT_ID=${PROJECT_ID}, BUCKET_NAME=${BUCKET_NAME}, DATASET_ID=${DATASET_ID}"
-
 echo "Exporting resource inventory for project ${PROJECT_ID} to gs://${BUCKET_NAME}/resource_inventory.json..."
 
-gcloud asset export
-  --content-type resource
-  --project "${PROJECT_ID}"
+gcloud asset export --project="${PROJECT_ID}" \
+  --content-type resource \
   --output-path "gs://${BUCKET_NAME}/resource_inventory.json"
+
 
 echo "Export complete."
 

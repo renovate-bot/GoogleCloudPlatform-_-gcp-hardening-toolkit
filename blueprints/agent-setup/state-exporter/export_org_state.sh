@@ -27,14 +27,12 @@ CAI_TABLE_ID="cai_org_resource_inventory"
 SCC_TABLE_ID="scc_org_findings"
 PROJECT_ID=$(gcloud config get-value project)
 
-echo "Arguments: ORG_ID=${ORG_ID}, BUCKET_NAME=${BUCKET_NAME}, DATASET_ID=${DATASET_ID}"
-
 echo "Exporting resource inventory for organization ${ORG_ID} to gs://${BUCKET_NAME}/org_resource_inventory.json..."
 
-gcloud asset export
-  --content-type resource
-  --organization "${ORG_ID}"
+gcloud asset export --organization="${ORG_ID}" \
+  --content-type resource \
   --output-path "gs://${BUCKET_NAME}/org_resource_inventory.json"
+
 
 echo "Export complete."
 
