@@ -22,25 +22,9 @@ resource "google_service_account" "agent_sa" {
 }
 
 # Bind the Standard Roles to the Service Account
-resource "google_project_iam_binding" "agent_bigquery_metadata_viewer" {
+resource "google_project_iam_binding" "agent_bigquery_user" {
   project = var.project_id
-  role    = "roles/bigquery.metadataViewer"
-  members = [
-    "serviceAccount:${google_service_account.agent_sa.email}"
-  ]
-}
-
-resource "google_project_iam_binding" "agent_bigquery_data_viewer" {
-  project = var.project_id
-  role    = "roles/bigquery.dataViewer"
-  members = [
-    "serviceAccount:${google_service_account.agent_sa.email}"
-  ]
-}
-
-resource "google_project_iam_binding" "agent_bigquery_job_user" {
-  project = var.project_id
-  role    = "roles/bigquery.jobUser"
+  role    = "roles/bigquery.user"
   members = [
     "serviceAccount:${google_service_account.agent_sa.email}"
   ]

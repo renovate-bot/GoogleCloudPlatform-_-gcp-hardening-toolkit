@@ -19,11 +19,6 @@ output "agent_sa_email" {
   value       = google_service_account.agent_sa.email
 }
 
-output "custom_role_id" {
-  description = "The ID of the custom role created for the agent."
-  value       = google_project_iam_custom_role.agent_viewer.role_id
-}
-
 output "dataset_id" {
   description = "The ID of the BigQuery dataset created for the agent telemetry."
   value       = var.create_dataset ? google_bigquery_dataset.agent_telemetry[0].dataset_id : null
