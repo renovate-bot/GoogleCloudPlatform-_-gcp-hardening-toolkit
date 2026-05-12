@@ -1,0 +1,26 @@
+# Example Terraform variables file for agent-setup blueprint.
+# Copy this file to 'terraform.tfvars' and fill in your values.
+
+# The GCP Project ID where the agent infrastructure (SA, BQ) will reside.
+project_id = "your-gcp-project-id"
+
+# The region for resources. Defaults to "us-central1".
+# region = "us-central1"
+
+# The name of the Service Account for the Hardening Agent.
+# Defaults to "hardening-agent-sa".
+# agent_sa_name = "hardening-agent-sa"
+
+# Whether to create the BigQuery dataset for the agent. Defaults to true.
+# create_dataset = true
+
+# The ID of the BigQuery dataset for the agent.
+# Defaults to "ght_agent_bq_your_gcp_project_id" (project ID converted to snake_case).
+# dataset_id = "ght_agent_bq_your_gcp_project_id"
+
+# The email of the user who will be running the agent (to allow Service Account impersonation).
+admin_email = "your-email@example.com"
+
+# The name of the GCS bucket for the agent's state.
+# Defaults to "ght-agent-cs-your-gcp-project-id".
+# agent_state_bucket_name = "ght-agent-cs-your-gcp-project-id"
