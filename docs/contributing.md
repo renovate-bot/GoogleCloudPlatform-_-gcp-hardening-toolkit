@@ -34,8 +34,8 @@ for this purpose.
 #### 2. Architecture & Naming Conventions
 The repository follows a **Library + Blueprints** architecture.
 
-- **Blueprints (`blueprints/`):** Comprehensive solutions (Pillar-based).
-    - **Format:** `gcp-<pillar>-<name>` (e.g., `gcp-foundation-org-iam`)
+- **Blueprints (`blueprints/`):** Comprehensive solutions (Category-based).
+    - **Format:** `gcp-<category>-<name>` (e.g., `gcp-foundation-org-iam`)
 - **Modules (`modules/`):** Reusable capabilities (Category-based).
     - **Format:** `gcp-<category>-<name>` (e.g., `gcp-iam-groups`)
 
@@ -46,10 +46,10 @@ We enforce a **Singular Purpose, Singular Naming** policy.
     - **Format:** `gcp-<category>-<name>`
     - **Example:** `modules/gcp-custom-constraints/dns-dnssec` (Constraint category - grouped in subfolder)
     - **Example:** `modules/gcp-org-policies-core` (Org Policies category)
-    - **Note:** Do NOT use the pillar prefix (e.g., `foundation`) in module names unless it describes the category itself.
+    - **Note:** Do NOT use the category prefix (e.g., `foundation`) in module names unless it describes the category itself.
 
-2.  **Blueprints (Pillar-based)**
-    - **Format:** `gcp-<pillar>-<name>`
+2.  **Blueprints (Category-based)**
+    - **Format:** `gcp-<category>-<name>`
     - **Example:** `blueprints/gcp-compliance-hipaa`
 
 #### 4. Contribution Workflow
