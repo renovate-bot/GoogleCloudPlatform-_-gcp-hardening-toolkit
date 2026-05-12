@@ -25,6 +25,12 @@ gcloud services enable cloudresourcemanager.googleapis.com
 
 ## Usage
 
+This blueprint automates the creation of the restricted infrastructure required to run the GCP Hardening Agent following the principle of least privilege. The process involves three main steps:
+
+### 1. Deploy Infrastructure (Terraform)
+
+First, deploy the necessary infrastructure (Service Account, BigQuery Dataset, GCS Bucket) using Terraform. This step might require enabling certain APIs in your project, as listed in the "Required APIs" section.
+
 1. Initialize Terraform:
    ```bash
    terraform init
@@ -41,12 +47,23 @@ gcloud services enable cloudresourcemanager.googleapis.com
    terraform apply
    ```
 
-## Post-Deployment
+### 2. Export Environment State
 
-After applying this blueprint, follow the instructions provided in the Terraform outputs to finish setting up the agent.
+After deploying the infrastructure, you need to export your GCP environment's state (Cloud Asset Inventory and Security Command Center findings) to the BigQuery dataset and GCS bucket created by Terraform. Use the `setup_instructions` output from Terraform to get the exact commands to run the state exporter scripts.
+
 ```bash
 terraform output setup_instructions
 ```
+Follow the instructions provided by the output to execute the appropriate state exporter script.
+
+### 3. Run the Hardening Agent
+
+Once the environment state has been exported, you can run the Hardening Agent. The `setup_instructions` output from Terraform will also provide the necessary commands to set up your environment for running the agent using Service Account Impersonation.
+
+```bash
+terraform output setup_instructions
+```
+Follow the instructions provided by the output to run the agent.
 
 ## State Exporter Scripts
 

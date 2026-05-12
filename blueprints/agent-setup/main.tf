@@ -30,7 +30,7 @@ provider "google" {
 }
 
 locals {
-  dataset_id              = var.dataset_id != "" ? var.dataset_id : "ght_agent_bq_${var.project_id}"
+  dataset_id              = var.dataset_id != "" ? var.dataset_id : "ght_agent_bq_${replace(var.project_id, "-", "_")}"
   agent_state_bucket_name = var.agent_state_bucket_name != "" ? var.agent_state_bucket_name : "ght-agent-cs-${var.project_id}"
 }
 
