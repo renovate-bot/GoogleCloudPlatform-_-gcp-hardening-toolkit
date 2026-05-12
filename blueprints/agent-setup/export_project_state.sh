@@ -1,58 +1,108 @@
-#!/bin/bash
-# Copyright 2025 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+#!/usr/bin/env bash
+# Script Name: export_project_state.sh
+# Purpose: Zero-touch CAI and SCC state export with deterministic execution validation.
 
-set -e
+PROJECT_ID=${1:-}
+DATASET_NAME=${2:-}
+BUCKET_NAME=${3:-}
 
-if [ "$#" -ne 3 ]; then
-    echo "Usage: $0 <project_id> <bucket_name> <dataset_id>"
-    exit 1
+if [[ -z "$PROJECT_ID" ]] || [[ -z "$DATASET_NAME" ]] || [[ -z "$BUCKET_NAME" ]]; then
+  echo "Execution aborted: Project ID, Dataset Name, and Bucket Name are required."
+  echo "Usage: $0 <PROJECT_ID> <DATASET_NAME> <BUCKET_NAME>"
+  exit 1
 fi
 
-PROJECT_ID=$1
-BUCKET_NAME=$2
-DATASET_ID=$3
-CAI_TABLE_ID="cai_resource_inventory"
-SCC_TABLE_ID="scc_findings"
+# --- CAI Export ---
 
-echo "Exporting resource inventory for project ${PROJECT_ID} to gs://${BUCKET_NAME}/resource_inventory.json..."
+echo "Ensuring Cloud Asset API is enabled for ${PROJECT_ID}..."
+gcloud services enable cloudasset.googleapis.com --project="${PROJECT_ID}" --quiet
 
-gcloud asset export --project="${PROJECT_ID}" \
-  --content-type resource \
-  --output-path "gs://${BUCKET_NAME}/resource_inventory.json"
+echo "Ensuring standardized BigQuery dataset '${DATASET_NAME}' exists..."
+bq mk --force --dataset "${PROJECT_ID}:${DATASET_NAME}" 2>/dev/null || true
 
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+TABLE_NAME="cai_state_${TIMESTAMP}"
+FULLY_QUALIFIED_TABLE="projects/${PROJECT_ID}/datasets/${DATASET_NAME}/tables/${TABLE_NAME}"
 
-echo "Export complete."
+IAM_TABLE_NAME="iam_policy_${TIMESTAMP}"
+FULLY_QUALIFIED_IAM_TABLE="projects/${PROJECT_ID}/datasets/${DATASET_NAME}/tables/${IAM_TABLE_NAME}"
 
-echo "Loading resource inventory from gs://${BUCKET_NAME}/resource_inventory.json into BigQuery table ${PROJECT_ID}:${DATASET_ID}.${CAI_TABLE_ID}..."
+echo "Initiating CAI batch export to BigQuery table: ${DATASET_NAME}.${TABLE_NAME}..."
 
-bq load
-  --source_format=NEWLINE_DELIMITED_JSON
-  "${PROJECT_ID}:${DATASET_ID}.${CAI_TABLE_ID}"
-  "gs://${BUCKET_NAME}/resource_inventory.json"
+# Execute the resource export and capture the asynchronous output
+EXPORT_OUT=$(gcloud asset export
+  --project="${PROJECT_ID}"
+  --asset-types="compute.googleapis.com/Instance,compute.googleapis.com/Firewall,iam.googleapis.com/ServiceAccount"
+  --content-type=resource
+  --bigquery-table="${FULLY_QUALIFIED_TABLE}"
+  --output-bigquery-force 2>&1)
 
-echo "CAI BigQuery load complete."
+# Echo the output so you have visibility
+echo "$EXPORT_OUT"
 
-echo "Exporting SCC findings for project ${PROJECT_ID} to BigQuery table ${PROJECT_ID}:${DATASET_ID}.${SCC_TABLE_ID}..."
+# Extract the operation path using Regex
+OP_PATH=$(echo "$EXPORT_OUT" | grep -oE "projects/[0-9]+/operations/ExportAssets/[a-zA-Z_]+/[a-f0-9]+")
 
-bq query
-  --project_id="${PROJECT_ID}"
-  --use_legacy_sql=false
-  "
-  CREATE OR REPLACE TABLE `${PROJECT_ID}.${DATASET_ID}.${SCC_TABLE_ID}` AS
-  SELECT * FROM `securitycentermanagement.findings`
-  "
+echo "Initiating IAM policy export to BigQuery table: ${DATASET_NAME}.${IAM_TABLE_NAME}..."
 
-echo "SCC BigQuery export complete."
+# Execute the IAM export and capture the asynchronous output
+EXPORT_IAM_OUT=$(gcloud asset export
+  --project="${PROJECT_ID}"
+  --content-type=iam-policy
+  --bigquery-table="${FULLY_QUALIFIED_IAM_TABLE}"
+  --output-bigquery-force 2>&1)
+
+# Echo the output so you have visibility
+echo "$EXPORT_IAM_OUT"
+
+# Extract the operation path using Regex
+OP_PATH_IAM=$(echo "$EXPORT_IAM_OUT" | grep -oE "projects/[0-9]+/operations/ExportAssets/[a-zA-Z_]+/[a-f0-9]+")
+
+if [[ -z "$OP_PATH" ]] || [[ -z "$OP_PATH_IAM" ]]; then
+  echo "Execution aborted: Failed to extract operation path for one or both exports. Review the logs above."
+  exit 1
+fi
+
+echo "CAI Exports triggered."
+echo "To check resource export status: gcloud asset operations describe "${OP_PATH}""
+echo "To check IAM policy export status: gcloud asset operations describe "${OP_PATH_IAM}""
+echo "Once operations are complete, tables ${DATASET_NAME}.${TABLE_NAME} and ${DATASET_NAME}.${IAM_TABLE_NAME} will be populated."
+
+# --- SCC Export ---
+
+echo "Ensuring Security Command Center API is enabled for ${PROJECT_ID}..."
+gcloud services enable securitycenter.googleapis.com --project="${PROJECT_ID}" --quiet
+
+echo "Ensuring Cloud Storage bucket '${BUCKET_NAME}' exists..."
+gcloud storage buckets create "gs://${BUCKET_NAME}" --project="${PROJECT_ID}" 2>/dev/null || true
+
+TIMESTAMP_SCC=$(date +%Y%m%d_%H%M%S)
+FILE_NAME="scc_findings_${PROJECT_ID}_${TIMESTAMP_SCC}.json"
+GCS_PATH="gs://${BUCKET_NAME}/${FILE_NAME}"
+
+echo "Exporting SCC findings for project ${PROJECT_ID} to ${GCS_PATH} using SCC V2 API..."
+
+# List findings in JSON format and stream to GCS
+# Correct syntax: gcloud scc findings list "projects/${PROJECT_ID}"
+# Added --location=global to force usage of SCC V2 API, as V1 is being deprecated.
+gcloud scc findings list "projects/${PROJECT_ID}"
+  --location="global"
+  --format="json" > "/tmp/${FILE_NAME}"
+
+if [[ $? -ne 0 ]]; then
+  echo "Error: Failed to list SCC findings. Ensure you have the required permissions and that the SCC V2 API is available."
+  rm -f "/tmp/${FILE_NAME}"
+  exit 1
+fi
+
+gcloud storage cp "/tmp/${FILE_NAME}" "${GCS_PATH}"
+
+if [[ $? -eq 0 ]]; then
+  echo "SCC Export complete: ${GCS_PATH}"
+else
+  echo "Error: Failed to upload to Cloud Storage."
+  rm -f "/tmp/${FILE_NAME}"
+  exit 1
+fi
+
+rm "/tmp/${FILE_NAME}"

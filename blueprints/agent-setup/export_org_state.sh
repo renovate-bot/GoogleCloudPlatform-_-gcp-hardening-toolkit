@@ -1,58 +1,112 @@
-#!/bin/bash
-# Copyright 2025 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#      http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+#!/usr/bin/env bash
+# Script Name: export_org_state.sh
+# Purpose: Org-wide CAI and SCC state export with billing project delegation.
 
-set -e
+BILLING_PROJECT=${1:-}
+DATASET_NAME=${2:-}
+BUCKET_NAME=${3:-}
+ORG_ID=${4:-}
 
-if [ "$#" -ne 3 ]; then
-    echo "Usage: $0 <org_id> <bucket_name> <dataset_id>"
-    exit 1
+if [[ -z "$BILLING_PROJECT" || -z "$DATASET_NAME" || -z "$BUCKET_NAME" || -z "$ORG_ID" ]]; then
+  echo "Execution aborted: Billing Project ID, Dataset Name, Bucket Name and Organization ID are required."
+  echo "Usage: $0 <BILLING_PROJECT_ID> <DATASET_NAME> <BUCKET_NAME> <ORG_ID>"
+  exit 1
 fi
 
-ORG_ID=$1
-BUCKET_NAME=$2
-DATASET_ID=$3
-CAI_TABLE_ID="cai_org_resource_inventory"
-SCC_TABLE_ID="scc_org_findings"
-PROJECT_ID=$(gcloud config get-value project)
+# --- CAI Export ---
 
-echo "Exporting resource inventory for organization ${ORG_ID} to gs://${BUCKET_NAME}/org_resource_inventory.json..."
+echo "Ensuring Cloud Asset API is enabled in billing project: ${BILLING_PROJECT}..."
+gcloud services enable cloudasset.googleapis.com --project="${BILLING_PROJECT}" --quiet
 
-gcloud asset export --organization="${ORG_ID}" \
-  --content-type resource \
-  --output-path "gs://${BUCKET_NAME}/org_resource_inventory.json"
+echo "Ensuring BigQuery dataset '${DATASET_NAME}' exists in ${BILLING_PROJECT}..."
+bq mk --force --dataset "${BILLING_PROJECT}:${DATASET_NAME}" 2>/dev/null || true
 
+TIMESTAMP=$(date +%Y%m%d_%H%M%S)
+TABLE_NAME="org_cai_state_${TIMESTAMP}"
+# Note: The table path for Org exports uses the 'projects/...' syntax for the destination
+FULLY_QUALIFIED_TABLE="projects/${BILLING_PROJECT}/datasets/${DATASET_NAME}/tables/${TABLE_NAME}"
 
-echo "Export complete."
+IAM_TABLE_NAME="org_iam_policy_${TIMESTAMP}"
+FULLY_QUALIFIED_IAM_TABLE="projects/${BILLING_PROJECT}/datasets/${DATASET_NAME}/tables/${IAM_TABLE_NAME}"
 
-echo "Loading resource inventory from gs://${BUCKET_NAME}/org_resource_inventory.json into BigQuery table ${PROJECT_ID}:${DATASET_ID}.${CAI_TABLE_ID}..."
+echo "Initiating Organization-wide CAI resource export for Org: ${ORG_ID}..."
 
-bq load
-  --source_format=NEWLINE_DELIMITED_JSON
-  "${PROJECT_ID}:${DATASET_ID}.${CAI_TABLE_ID}"
-  "gs://${BUCKET_NAME}/org_resource_inventory.json"
+# We use --organization and --billing-project to cross the project boundary
+EXPORT_OUT=$(gcloud asset export
+  --organization="${ORG_ID}"
+  --billing-project="${BILLING_PROJECT}"
+  --asset-types="compute.googleapis.com/Instance,compute.googleapis.com/Firewall,compute.googleapis.com/Address,iam.googleapis.com/ServiceAccount,iam.googleapis.com/ServiceAccountKey,accesscontextmanager.googleapis.com/ServicePerimeter,accesscontextmanager.googleapis.com/AccessLevel,storage.googleapis.com/Bucket"
+  --content-type=resource
+  --bigquery-table="${FULLY_QUALIFIED_TABLE}"
+  --output-bigquery-force 2>&1)
 
-echo "CAI BigQuery load complete."
+echo "$EXPORT_OUT"
 
-echo "Exporting SCC findings for organization ${ORG_ID} to BigQuery table ${PROJECT_ID}:${DATASET_ID}.${SCC_TABLE_ID}..."
+# Extract Operation Path with support for underscores
+OP_PATH=$(echo "$EXPORT_OUT" | grep -oE "organizations/[0-9]+/operations/ExportAssets/[a-zA-Z_]+/[a-f0-9]+")
 
-bq query
-  --project_id="${PROJECT_ID}"
-  --use_legacy_sql=false
-  "
-  CREATE OR REPLACE TABLE `${PROJECT_ID}.${DATASET_ID}.${SCC_TABLE_ID}` AS
-  SELECT * FROM `organizations/${ORG_ID}/sources/-/findings`
-  "
+echo "Initiating Organization-wide CAI IAM policy export for Org: ${ORG_ID}..."
 
-echo "SCC BigQuery export complete."
+EXPORT_IAM_OUT=$(gcloud asset export
+  --organization="${ORG_ID}"
+  --billing-project="${BILLING_PROJECT}"
+  --content-type=iam-policy
+  --bigquery-table="${FULLY_QUALIFIED_IAM_TABLE}"
+  --output-bigquery-force 2>&1)
+
+echo "$EXPORT_IAM_OUT"
+
+# Extract Operation Path for IAM export
+OP_PATH_IAM=$(echo "$EXPORT_IAM_OUT" | grep -oE "organizations/[0-9]+/operations/ExportAssets/[a-zA-Z_]+/[a-f0-9]+")
+
+if [[ -z "$OP_PATH" ]] || [[ -z "$OP_PATH_IAM" ]]; then
+  echo "Execution aborted: Failed to extract operation path for one or both exports. Check permissions."
+  exit 1
+fi
+
+echo "----------------------------------------------------------------"
+echo "Org CAI Exports Triggered successfully."
+echo "To check resource export status: gcloud asset operations describe "${OP_PATH}" --billing-project="${BILLING_PROJECT}""
+echo "To check IAM policy export status: gcloud asset operations describe "${OP_PATH_IAM}" --billing-project="${BILLING_PROJECT}""
+echo "Data destinations:"
+echo "  Resource Table: ${BILLING_PROJECT}.${DATASET_NAME}.${TABLE_NAME}"
+echo "  IAM Policy Table: ${BILLING_PROJECT}.${DATASET_NAME}.${IAM_TABLE_NAME}"
+
+# --- SCC Export ---
+
+echo "Ensuring Security Command Center API is enabled in billing project: ${BILLING_PROJECT}..."
+gcloud services enable securitycenter.googleapis.com --project="${BILLING_PROJECT}" --quiet
+
+echo "Ensuring Cloud Storage bucket '${BUCKET_NAME}' exists in ${BILLING_PROJECT}..."
+gcloud storage buckets create "gs://${BUCKET_NAME}" --project="${BILLING_PROJECT}" 2>/dev/null || true
+
+TIMESTAMP_SCC=$(date +%Y%m%d_%H%M%S)
+FILE_NAME="scc_findings_org_${ORG_ID}_${TIMESTAMP_SCC}.json"
+GCS_PATH="gs://${BUCKET_NAME}/${FILE_NAME}"
+
+echo "Initiating Organization-wide SCC findings export for Org: ${ORG_ID} to ${GCS_PATH} using SCC V2 API..."
+
+# List findings in JSON format and stream to GCS
+# Added --location=global to force usage of SCC V2 API.
+gcloud scc findings list "organizations/${ORG_ID}"
+  --location="global"
+  --billing-project="${BILLING_PROJECT}"
+  --format="json" > "/tmp/${FILE_NAME}"
+
+if [[ $? -ne 0 ]]; then
+  echo "Error: Failed to list SCC findings. Ensure you have the required permissions and that the SCC V2 API is available."
+  rm -f "/tmp/${FILE_NAME}"
+  exit 1
+fi
+
+gcloud storage cp "/tmp/${FILE_NAME}" "${GCS_PATH}"
+
+if [[ $? -eq 0 ]]; then
+  echo "SCC Export complete: ${GCS_PATH}"
+else
+  echo "Error: Failed to upload to Cloud Storage."
+  rm -f "/tmp/${FILE_NAME}"
+  exit 1
+fi
+
+rm "/tmp/${FILE_NAME}"

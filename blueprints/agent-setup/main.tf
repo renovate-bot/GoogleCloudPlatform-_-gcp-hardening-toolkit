@@ -30,7 +30,8 @@ provider "google" {
 }
 
 locals {
-  agent_state_bucket_name = var.agent_state_bucket_name != "" ? var.agent_state_bucket_name : "${var.project_id}-agent-state"
+  dataset_id              = var.dataset_id != "" ? var.dataset_id : "ght_agent_bq_${var.project_id}"
+  agent_state_bucket_name = var.agent_state_bucket_name != "" ? var.agent_state_bucket_name : "ght-agent-cs-${var.project_id}"
 }
 
 resource "google_storage_bucket" "agent_state" {
@@ -42,7 +43,7 @@ resource "google_storage_bucket" "agent_state" {
 
 resource "google_bigquery_dataset" "agent_telemetry" {
   count       = var.create_dataset ? 1 : 0
-  dataset_id  = var.dataset_id
+  dataset_id  = local.dataset_id
   description = "Central hub for security telemetry, logs, and asset inventory for the GCP Hardening Agent."
   location    = "US" # Standard for analytics
 }

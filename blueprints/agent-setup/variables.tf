@@ -40,7 +40,7 @@ variable "create_dataset" {
 variable "dataset_id" {
   description = "The ID of the BigQuery dataset for the agent."
   type        = string
-  default     = "hardening_agent_telemetry"
+  default     = ""
 }
 
 variable "admin_email" {
