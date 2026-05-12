@@ -25,7 +25,7 @@ Navigate to `blueprints/agent-setup/` and deploy the setup blueprint. This provi
 Install the Hardening Agent as a Gemini CLI extension:
 
 ```bash
-gemini extensions install [https://github.com/GoogleCloudPlatform/gcp-hardening-toolkit](https://github.com/GoogleCloudPlatform/gcp-hardening-toolkit)
+gemini extensions install https://github.com/GoogleCloudPlatform/gcp-hardening-toolkit
 ```
 *For complete architecture and command details, see the [Hardening Agent Documentation](agent/README.md).*
 
