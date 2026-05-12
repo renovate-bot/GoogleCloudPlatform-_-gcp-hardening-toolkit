@@ -24,11 +24,23 @@ output "dataset_id" {
   value       = var.create_dataset ? google_bigquery_dataset.agent_telemetry[0].dataset_id : null
 }
 
+output "agent_state_bucket_name" {
+  description = "The name of the GCS bucket for the agent's state."
+  value       = google_storage_bucket.agent_state.name
+}
+
 output "setup_instructions" {
   description = "Next steps for setting up the agent."
   value       = <<EOF
-1. Export your environment state to the new dataset:
-   cd blueprints/agent-setup/state-exporter   ./export_cai_state.sh ${var.project_id}
+1. Export your environment state using the appropriate script:
+
+   For a single project:
+   cd blueprints/agent-setup/state-exporter
+   ./export_project_state.sh ${var.project_id} ${google_storage_bucket.agent_state.name} ${google_bigquery_dataset.agent_telemetry[0].dataset_id}
+
+   For an entire organization (replace YOUR_ORG_ID):
+   cd blueprints/agent-setup/state-exporter
+   ./export_org_state.sh YOUR_ORG_ID ${google_storage_bucket.agent_state.name} ${google_bigquery_dataset.agent_telemetry[0].dataset_id}
 
 2. Run the agent using Service Account Impersonation (No keys needed!):
    gcloud auth application-default login --impersonate-service-account=${google_service_account.agent_sa.email}

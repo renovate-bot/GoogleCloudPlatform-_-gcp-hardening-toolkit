@@ -29,6 +29,17 @@ provider "google" {
   region  = var.region
 }
 
+locals {
+  agent_state_bucket_name = var.agent_state_bucket_name != "" ? var.agent_state_bucket_name : "${var.project_id}-agent-state"
+}
+
+resource "google_storage_bucket" "agent_state" {
+  name                        = local.agent_state_bucket_name
+  location                    = "US"
+  force_destroy               = false
+  uniform_bucket_level_access = true
+}
+
 resource "google_bigquery_dataset" "agent_telemetry" {
   count       = var.create_dataset ? 1 : 0
   dataset_id  = var.dataset_id

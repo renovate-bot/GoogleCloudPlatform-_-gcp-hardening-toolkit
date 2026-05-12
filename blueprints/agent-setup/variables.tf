@@ -47,3 +47,9 @@ variable "admin_email" {
   description = "The email of the user who will be running the agent (to allow Service Account impersonation)."
   type        = string
 }
+
+variable "agent_state_bucket_name" {
+  description = "The name of the GCS bucket for the agent's state."
+  type        = string
+  default     = ""
+}
