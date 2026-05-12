@@ -11,6 +11,18 @@ This blueprint automates the creation of the restricted infrastructure required 
 - Terraform >= 1.3.0
 - A GCP Project where you have `Owner` or `IAM Admin` permissions (to create the SA and roles).
 
+### Required APIs
+The following APIs must be enabled in your GCP project for this blueprint to function correctly:
+
+- Identity and Access Management (IAM) API
+- Cloud Resource Manager API
+
+You can enable them using the `gcloud` CLI:
+```bash
+gcloud services enable iam.googleapis.com
+gcloud services enable cloudresourcemanager.googleapis.com
+```
+
 ## Usage
 
 1. Initialize Terraform:
