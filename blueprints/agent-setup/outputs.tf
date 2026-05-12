@@ -35,11 +35,9 @@ output "setup_instructions" {
 1. Export your environment state using the appropriate script:
 
    For a single project:
-   cd blueprints/agent-setup/state-exporter
    ./export_project_state.sh ${var.project_id} ${google_storage_bucket.agent_state.name} ${google_bigquery_dataset.agent_telemetry[0].dataset_id}
 
    For an entire organization (replace YOUR_ORG_ID):
-   cd blueprints/agent-setup/state-exporter
    ./export_org_state.sh YOUR_ORG_ID ${google_storage_bucket.agent_state.name} ${google_bigquery_dataset.agent_telemetry[0].dataset_id}
 
 2. Run the agent using Service Account Impersonation (No keys needed!):

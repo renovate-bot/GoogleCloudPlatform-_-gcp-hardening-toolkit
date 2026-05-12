@@ -47,3 +47,20 @@ After applying this blueprint, follow the instructions provided in the Terraform
 ```bash
 terraform output setup_instructions
 ```
+
+## State Exporter Scripts
+
+This blueprint includes scripts to export the state of your GCP environment for security hardening analysis.
+
+### Prerequisites
+
+Ensure you have the `gcloud` CLI and `bq` command-line tools installed and configured.
+
+### Scripts
+
+- `export_project_state.sh [PROJECT_ID] [BUCKET_NAME] [DATASET_ID]`: Exports both Cloud Asset Inventory (CAI) and Security Command Center (SCC) state for a specific project.
+- `export_org_state.sh [ORG_ID] [BUCKET_NAME] [DATASET_ID]`: Exports both CAI and SCC state for an entire organization.
+
+### Usage
+
+The `setup_instructions` output from Terraform will provide the exact commands to run these scripts with the correct arguments.
