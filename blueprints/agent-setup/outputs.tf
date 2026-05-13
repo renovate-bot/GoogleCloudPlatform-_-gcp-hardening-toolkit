@@ -35,7 +35,7 @@ output "setup_instructions" {
 1. Export your environment state using the appropriate script:
 
    For a single project:
-   ./export_project_state.sh ${google_bigquery_dataset.agent_telemetry[0].dataset_id} ${google_storage_bucket.agent_state.name} YOUR_PROJECT_ID
+   ./export_project_state.sh ${var.project_id} ${google_bigquery_dataset.agent_telemetry[0].dataset_id} ${google_storage_bucket.agent_state.name} YOUR_PROJECT_ID
 
    For an entire organization (replace YOUR_ORG_ID):
    ./export_org_state.sh ${var.project_id} ${google_bigquery_dataset.agent_telemetry[0].dataset_id} ${google_storage_bucket.agent_state.name} YOUR_ORG_ID
