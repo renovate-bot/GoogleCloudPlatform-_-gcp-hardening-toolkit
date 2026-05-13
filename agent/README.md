@@ -2,11 +2,7 @@
 
 The GCP Hardening Agent is a professional security engineering assistant designed to triage Google Cloud environments and generate actionable hardening blueprints. It operates as a specialized extension for the **Gemini CLI**, enabling an interactive and automated approach to managing security debt in complex, brownfield environments.
 
-## Installation and Setup
-
-Follow these steps to bootstrap and initialize the interactive assistant:
-
-### Installation
+## Installation
 
 To install the Hardening Agent as a Gemini CLI extension, run:
 
@@ -14,174 +10,26 @@ To install the Hardening Agent as a Gemini CLI extension, run:
 gemini extensions install https://github.com/GoogleCloudPlatform/gcp-hardening-toolkit
 ```
 
-### Prerequisites
-
-Ensure the following tools are installed and configured:
-
-| Name | Description | Recommended Minimal Version |
-| :--- | :--- | :--- |
-| Gemini CLI | The agent functions as a native extension of the Gemini CLI environment. | >= v0.32.0  |
-| gcloud CLI | Required for authentication and resource management. | >= 559.0.0 |
-| bq | Necessary for querying security telemetry in BigQuery. | >= 2.0.98 |
-| Terraform | For deploying generated hardening blueprints. | >= 1.3 |
-| Node.js & npx | Required for running local MCP servers like Storage MCP. | >= 18.0.0 |
-
-Follow these steps to bootstrap and initialize the interactive assistant:
-
-1. **Export Telemetry Context (Must be run BEFORE starting the agent):** Navigate to `blueprints/agent-setup/state-exporter` and run the appropriate script to dump your environment's context.
-
-   > [!IMPORTANT]
-   > These export scripts **must be executed before** running the agent.
-   > Furthermore, they must be executed by a **user account** (or a separate highly privileged service account) with permissions to export assets from Cloud Asset Inventory to BigQuery and Cloud Storage. Do not use the restricted service account intended for the agent execution here, as it lacks these permissions.
-
-   **Option A: Project-Level Asset Export (Default)**
-   ```bash
-   cd blueprints/agent-setup/state-exporter
-   ./export_cai_state.sh YOUR_PROJECT_ID
-   ```
-
-   **Option B: Organization-Level Asset Export**
-   ```bash
-   cd blueprints/agent-setup/state-exporter
-   ./export_cai_org_state.sh YOUR_ORG_ID YOUR_BILLING_PROJECT_ID
-   ```
-
-   **Option C: Project-Level Security Command Center (SCC) Export**
-   ```bash
-   cd blueprints/agent-setup/state-exporter
-   ./export_scc_state.sh YOUR_GCP_PROJECT_ID [OPTIONAL_GCS_BUCKET_NAME]
-   ```
-
-   **Option D: Organization-Level Security Command Center (SCC) Export**
-   ```bash
-   cd blueprints/agent-setup/state-exporter
-   ./export_scc_org_state.sh YOUR_ORG_ID YOUR_BILLING_PROJECT_ID [OPTIONAL_GCS_BUCKET_NAME]
-   ```
-
-2. **Authenticate for Agent Execution:** You must authenticate with Google Cloud before running the agent.
-
-   **Option A: Interactive User Login**
-   ```bash
-   gcloud auth application-default login
-   ```
-
-   **Option B: Service Account Impersonation (Recommended for Least Privilege)**
-   To authenticate using Service Account impersonation (if JSON keys are disabled):
-   ```bash
-   gcloud auth application-default login --impersonate-service-account=hardening-agent-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com
-   ```
-
-   > [!NOTE]
-   > When authenticating using a Service Account (impersonated or via key), the **Gemini for Google Cloud API** (`cloudaicompanion.googleapis.com`) must be enabled on your target project before running the `gemini` CLI. You can enable it via the Google Cloud Console or by running: `gcloud services enable cloudaicompanion.googleapis.com --project=YOUR_PROJECT_ID`
+After installation, link the extension to your local repository:
+```bash
+gemini extensions link .
+```
 
 
-3. **Start the Interface:** The `gemini` CLI must be executed from the **repository root** so it can locate the `gemini-extension.json` configuration file.
-   ```bash
-   #Set your Google Cloud Project
-   export GOOGLE_CLOUD_PROJECT="YOUR_PROJECT_ID"
-   gemini extensions link . # This links the agent as a local extension
-   gemini
-   ```
+## Setup
+
+For the agent to have full capabilities, you need to set up the necessary GCP infrastructure (Service Account, IAM roles, BigQuery dataset).
+
+The recommended way to do this is by following the instructions in the [agent-setup blueprint](../blueprints/agent-setup/README.md).
+
+## Usage
+
+To start the agent, run `gemini` from the root of the `gcp-hardening-toolkit` repository.
 
 ### Example Prompts
 
-Once the agent is running, you can interact with it to analyze your environment and generate blueprints. Here are some examples of requests you can make:
+Here are some examples of requests you can make:
 
 *   **Postural Analysis:** `"Can you analyze my exported asset inventory in BigQuery and identify any public IP addresses assigned to Compute Engine instances?"`
 *   **IAM Audit:** `"List all service accounts that have primitive owner or editor roles assigned in the project."`
 *   **Blueprint Generation:** `"Help me generate a Terraform blueprint to block service account creation using organization policies, referring to the stateless modules available in the repo."`
-
----
-
-This document also covers the security model, architecture, and advanced configuration of the agent in the sections below.
-
-## Security and Permissions (Least Privilege)
-
-The `gemini-cli` uses [**application-default credentials (ADC)**](https://docs.cloud.google.com/docs/authentication/provide-credentials-adc) to authenticate to GCP for data read operations. These read operations are crucial for the hardening agent context. To ensure security, we must guarantee the agent only has reader permission and cannot perform any changes in the environment.
-
-### ⚠️ Warning
-
-> [!WARNING]
-> DO NOT use administrator accounts to log into Google Cloud for the hardening agent.
-> DO NOT enable [auto decision-making](#disabling-auto-decision-making) in the hardening agent.
->
-> **Recommendation:** We recommend running the hardening agent using a Service Account as stated in [Option B](../README.md#option-b-service-account-json-key) of the root `README.md`. To follow the principle of least privilege, create the custom role for the viewer found in the `custom-role-creation` directory and assign it to the Service Account.
-
-### Disabling Auto Decision-Making
-
-The GCP Hardening Agent is designed for interactive use. It does not possess configuration flags for automated execution. To adhere to this guideline:
-- **Interactive Session**: Always run the agent in an interactive terminal.
-- **Manual Blueprint Review**: Manually inspect any generated Terraform blueprints before deployment.
-- **No Unattended CI/CD**: Do not integrate the agent into fully automated pipelines without a human-in-the-loop approval stage.
-
-### Automated Agent Infrastructure Setup (Recommended)
-
-To simplify the setup while maintaining the principle of least privilege, use the provided Terraform blueprint. This will automatically create the Service Account, the restricted custom IAM role, and the BigQuery telemetry dataset.
-
-1. **Navigate to the setup blueprint:**
-   ```bash
-   cd blueprints/agent-setup
-   ```
-
-2. **Initialize and Apply:**
-   ```bash
-   terraform init
-   # Create a terraform.tfvars file with your project_id
-   terraform apply
-   ```
-
-3. **Follow the Output Instructions:**
-   The Terraform output will provide the exact `gcloud` commands to download your Service Account key and trigger the initial data export.
-
----
-
-## Role & Expertise
-
-The Hardening Agent acts as a professional security peer, providing:
-
-- **Posture Interpretation**: Analyzing Cloud Asset Inventory (CAI) data and security telemetry stored in BigQuery to identify vulnerabilities.
-- **Consultative Hardening**: Asking the user about specific hardening requirements and constraints.
-- **Blueprint Generation**: Designing new, custom Terraform blueprints (e.g., `ght-agent-generated-blueprint`) by leveraging the toolkit's stateless modules.
-
-## System Architecture
-
-The agent operates as a Gemini CLI extension, integrating modules, discovery scripts, and user input to produce actionable security outcomes.
-
-- **Central Hub**: BigQuery (connected via Model Context Protocol - MCP) containing Cloud Asset Inventory data.
-- **Cloud Storage Access**: Connected via local Storage MCP (configured in `.gemini/settings.json`) to interact with Cloud Storage buckets.
-- **Codebase Access**: The agent is grounded in the `gcp-hardening-toolkit` repository, allowing it to read and reuse existing `modules/` and `blueprints/`.
-
-## Core Capabilities
-
-The agent utilizes BigQuery and Storage tools to analyze the environment:
-
-- **Data Fetching**: Querying CAI resources, IAM bindings, and firewall rules from BigQuery.
-- **Storage Interaction**: Reading and writing objects in Cloud Storage buckets using the Storage MCP.
-- **Misconfiguration Identification**: Identifying over-privileged accounts, open network ports, and missing security controls.
-- **Incremental Hardening**: Recommending and generating blueprints for non-disruptive remediation.
-
-## Operational Workflow
-
-1. **Triage & Enrichment**: The agent verifies the presence of CAI data in BigQuery. If missing, it recommends running the `state-exporter` scripts.
-2. **Requirement Gathering**: The agent consults with the user to define hardening goals and constraints.
-3. **Blueprint Generation**: Based on the gathered requirements, the agent generates a new, ready-to-deploy blueprint using appropriate toolkit modules.
-
-## Sub-components
-
-### State Exporter
-
-The `state-exporter` directory contains the critical scripts needed to export your GCP environment's live state for analysis. For more details, see [blueprints/agent-setup/state-exporter/README.md](../blueprints/agent-setup/state-exporter/README.md).
-
-### Queries
-
-The `queries` directory contains pre-defined BigQuery SQL scripts to help the agent understand specific conditions and dependencies in your environment. You can use these as templates or grounding context for the agent.
-- `deprecated_resources.sql`: Identifies old or unchanged resources.
-- `service_accounts_with_keys.sql`: Lists service accounts with user-managed keys.
-- `vpc_sc_perimeters.sql`: Details VPC Service Control perimeters.
-- `primitive_roles_audit.sql`: Identifies users or service accounts with primitive roles (Owner, Editor).
-- `external_identity_exposure.sql`: Identifies IAM bindings granted to external identities.
-- `broad_firewall_rules.sql`: Identifies firewall rules that allow traffic from anywhere (0.0.0.0/0).
-- `public_buckets.sql`: Identifies Cloud Storage buckets with public access.
-- `orphaned_ips.sql`: Identifies static external IP addresses that are not attached to any resource.
-- `missing_cmek.sql`: Identifies Compute Engine instances with disks not using CMEK.
-- `shielded_vms.sql`: Identifies Compute Engine instances with Shielded VM features disabled.
