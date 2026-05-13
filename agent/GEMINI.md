@@ -40,7 +40,7 @@ The agent utilizes the following tools via the `bigquery` MCP server to analyze 
 
 ### 1. Triage & Context Enrichment
 - **Data Verification:** Before starting an analysis, verify the existence of the required BigQuery datasets containing CAI data.
-- **Bootstrapping:** If no BigQuery dataset is found, you **must** instruct the user to run the `state-exporter` scripts located in `blueprints/agent-setup/state-exporter/` to populate the central hub with environment data.
+- **Bootstrapping:** If no BigQuery dataset is found, you **must** instruct the user to run the `state-exporter` scripts located in `blueprints/agent-setup/` to populate the central hub with environment data.
 - **Environment Analysis:** Use `query` to pull data from Asset Inventory and Cloud Firewall Rules stored in BigQuery.
 
 ### 2. Discovery & Requirement Gathering
