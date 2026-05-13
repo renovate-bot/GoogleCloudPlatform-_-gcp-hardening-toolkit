@@ -4,7 +4,7 @@
 ![Python](https://img.shields.io/badge/Python-3.x-3776AB?style=for-the-badge&logo=python&logoColor=white)
 ![Bash](https://img.shields.io/badge/Bash-Shell-4EAA25?style=for-the-badge&logo=gnu-bash&logoColor=white)
 ![License](https://img.shields.io/badge/License-Apache%202.0-blue?style=for-the-badge)
-[![Technical Guides](https://img.shields.io/badge/YouTube-Technical_Guides-CD201F?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=hrbTj3YUhlQ&list=PLJKGPxH0mLCrZDBQbSAGP8O_ig2o4iZM9&index=1)
+[![Technical Guides](https://img.shields.io/badge/YouTube-Technical_Guides-C0392B?style=for-the-badge&logo=youtube&logoColor=white)](https://www.youtube.com/watch?v=hrbTj3YUhlQ&list=PLJKGPxH0mLCrZDBQbSAGP8O_ig2o4iZM9&index=1)
 
 Standard foundational toolkits assume a clean slate. The reality is you are likely dealing with active, undocumented, and messy infrastructure (brownfield environments).
 
