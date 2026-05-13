@@ -12,7 +12,7 @@ Before deploying, make sure you have the right tools and access.
 
 Run this to enable the APIs:
 ```bash
-gcloud services enable iam.googleapis.com cloudresourcemanager.googleapis.com
+gcloud services enable iam.googleapis.com cloudresourcemanager.googleapis.com cloudaicompanion.googleapis.com
 ```
 
 ---
