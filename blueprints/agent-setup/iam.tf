@@ -24,7 +24,7 @@ resource "google_service_account" "agent_sa" {
 # Bind the scoped Roles to the Service Account
 resource "google_bigquery_dataset_iam_binding" "agent_bigquery_viewer" {
   project    = var.project_id
-  dataset_id = google_bigquery_dataset.agent_telemetry.dataset_id
+  dataset_id = google_bigquery_dataset.agent_telemetry[0].dataset_id
   role       = "roles/bigquery.dataViewer"
   members = [
     "serviceAccount:${google_service_account.agent_sa.email}"
