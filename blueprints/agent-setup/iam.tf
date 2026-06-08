@@ -45,13 +45,25 @@ resource "google_storage_bucket_iam_member" "agent_storage_object_viewer" {
   member = "serviceAccount:${google_service_account.agent_sa.email}"
 }
 
-# Required for the agent to use MCP tools (BigQuery, Storage)
-resource "google_project_iam_binding" "mcp_tool_user" {
+# Required for the agent to read resources and security telemetry
+resource "google_project_iam_member" "agent_viewer" {
   project = var.project_id
-  role    = "roles/mcp.toolUser"
-  members = [
-    "serviceAccount:${google_service_account.agent_sa.email}"
-  ]
+  role    = "roles/viewer"
+  member  = "serviceAccount:${google_service_account.agent_sa.email}"
+}
+
+# Required for the agent to use AI features (e.g. Gemini Code Assist)
+resource "google_project_iam_member" "agent_ai_companion_user" {
+  project = var.project_id
+  role    = "roles/cloudaicompanion.user"
+  member  = "serviceAccount:${google_service_account.agent_sa.email}"
+}
+
+# Recommended: Allows the agent to review IAM policies and security configurations in detail
+resource "google_project_iam_member" "agent_security_reviewer" {
+  project = var.project_id
+  role    = "roles/iam.securityReviewer"
+  member  = "serviceAccount:${google_service_account.agent_sa.email}"
 }
 
 # Optional: Add Service Usage Consumer if needed to use APIs
