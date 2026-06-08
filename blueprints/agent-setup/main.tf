@@ -37,13 +37,14 @@ locals {
 resource "google_storage_bucket" "agent_state" {
   name                        = local.agent_state_bucket_name
   location                    = "US"
-  force_destroy               = false
+  force_destroy               = true
   uniform_bucket_level_access = true
 }
 
 resource "google_bigquery_dataset" "agent_telemetry" {
-  count       = var.create_dataset ? 1 : 0
-  dataset_id  = local.dataset_id
-  description = "Central hub for security telemetry, logs, and asset inventory for the GCP Hardening Agent."
-  location    = "US" # Standard for analytics
+  count                      = var.create_dataset ? 1 : 0
+  dataset_id                 = local.dataset_id
+  description                = "Central hub for security telemetry, logs, and asset inventory for the GCP Hardening Agent."
+  location                   = "US" # Standard for analytics
+  delete_contents_on_destroy = true
 }
