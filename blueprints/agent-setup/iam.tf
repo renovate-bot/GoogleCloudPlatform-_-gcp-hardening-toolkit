@@ -21,38 +21,49 @@ resource "google_service_account" "agent_sa" {
   project      = var.project_id
 }
 
-# Bind the Standard Roles to the Service Account
-resource "google_project_iam_binding" "agent_bigquery_user" {
-  project = var.project_id
-  role    = "roles/bigquery.user"
+# Bind the scoped Roles to the Service Account
+resource "google_bigquery_dataset_iam_binding" "agent_bigquery_viewer" {
+  project    = var.project_id
+  dataset_id = google_bigquery_dataset.agent_telemetry[0].dataset_id
+  role       = "roles/bigquery.dataViewer"
   members = [
     "serviceAccount:${google_service_account.agent_sa.email}"
   ]
 }
 
-resource "google_project_iam_binding" "agent_storage_object_viewer" {
+resource "google_project_iam_binding" "agent_bigquery_job_user" {
   project = var.project_id
-  role    = "roles/storage.objectViewer"
+  role    = "roles/bigquery.jobUser"
   members = [
     "serviceAccount:${google_service_account.agent_sa.email}"
   ]
 }
 
-resource "google_project_iam_binding" "agent_browser" {
-  project = var.project_id
-  role    = "roles/browser"
-  members = [
-    "serviceAccount:${google_service_account.agent_sa.email}"
-  ]
+resource "google_storage_bucket_iam_member" "agent_storage_object_viewer" {
+  bucket = google_storage_bucket.agent_state.name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${google_service_account.agent_sa.email}"
 }
 
-# Required for the agent to use MCP tools (BigQuery, Storage)
-resource "google_project_iam_binding" "mcp_tool_user" {
+# Required for the agent to read resources and security telemetry
+resource "google_project_iam_member" "agent_viewer" {
   project = var.project_id
-  role    = "roles/mcp.toolUser"
-  members = [
-    "serviceAccount:${google_service_account.agent_sa.email}"
-  ]
+  role    = "roles/viewer"
+  member  = "serviceAccount:${google_service_account.agent_sa.email}"
+}
+
+# Required for the agent to use AI features (e.g. Gemini Code Assist)
+resource "google_project_iam_member" "agent_ai_companion_user" {
+  project = var.project_id
+  role    = "roles/cloudaicompanion.user"
+  member  = "serviceAccount:${google_service_account.agent_sa.email}"
+}
+
+# Recommended: Allows the agent to review IAM policies and security configurations in detail
+resource "google_project_iam_member" "agent_security_reviewer" {
+  project = var.project_id
+  role    = "roles/iam.securityReviewer"
+  member  = "serviceAccount:${google_service_account.agent_sa.email}"
 }
 
 # Optional: Add Service Usage Consumer if needed to use APIs

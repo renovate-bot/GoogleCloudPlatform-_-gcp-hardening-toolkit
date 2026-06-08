@@ -43,7 +43,7 @@ backend.tf
 .AppleDouble
 .LSOverride
 
-# Icon must end with two \r
+# Icon must end with two
 Icon
 
 # Thumbnails
@@ -72,3 +72,5 @@ ehthumbs.db
 .verify_venv
 .verify_venv_2
 venv
+
+ght-agent-generated-blueprint
