@@ -31,12 +31,10 @@ resource "google_bigquery_dataset_iam_binding" "agent_bigquery_viewer" {
   ]
 }
 
-resource "google_project_iam_binding" "agent_bigquery_job_user" {
+resource "google_project_iam_member" "agent_bigquery_job_user" {
   project = var.project_id
   role    = "roles/bigquery.jobUser"
-  members = [
-    "serviceAccount:${google_service_account.agent_sa.email}"
-  ]
+  member  = "serviceAccount:${google_service_account.agent_sa.email}"
 }
 
 resource "google_storage_bucket_iam_member" "agent_storage_object_viewer" {
@@ -67,12 +65,10 @@ resource "google_project_iam_member" "agent_security_reviewer" {
 }
 
 # Optional: Add Service Usage Consumer if needed to use APIs
-resource "google_project_iam_binding" "service_usage_consumer" {
+resource "google_project_iam_member" "service_usage_consumer" {
   project = var.project_id
   role    = "roles/serviceusage.serviceUsageConsumer"
-  members = [
-    "serviceAccount:${google_service_account.agent_sa.email}"
-  ]
+  member  = "serviceAccount:${google_service_account.agent_sa.email}"
 }
 
 # Allow the user to impersonate the Service Account (avoids the need for JSON keys)
