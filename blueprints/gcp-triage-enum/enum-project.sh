@@ -15,26 +15,8 @@ TRUSTED_DOMAINS=(
   "google.com"
 )
 
-# Output file (optional) - pass via OUTPUT_FILE env var or --output flag
-OUTPUT_FILE="${OUTPUT_FILE:-}"
-for arg in "$@"; do
-  if [[ "$arg" =~ ^--output= ]]; then
-    # Extract output path from args like --output=/path/to/file
-    OUTPUT_FILE="${arg#--output=}"
-    break
-  fi
-done
-
-# Set up dual logging if output file specified
-if [ -n "${OUTPUT_FILE:-}" ]; then
-  exec > >(tee -a "$OUTPUT_FILE") 2> >(tee -a "$OUTPUT_FILE" >&2)
-  echo "Output being saved to: $OUTPUT_FILE"
-  echo ""
-fi
-
-# Timing helpers
-section_start() { SECTION_START=$SECONDS; }
-section_elapsed() { local elapsed=$(( SECONDS - SECTION_START )); printf " (%ds)" "$elapsed"; echo ""; }
+# Get the directory of the script dynamically
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Check if a project ID was provided as an argument.
 PROJECT_ARG=""
@@ -49,6 +31,34 @@ if [ -z "${PROJECT_ARG:-}" ]; then
   echo "Usage: $0 [--output=/path/to/file] <project-id>"
   exit 1
 fi
+
+# Output file - pass via OUTPUT_FILE env var or --output flag, otherwise default
+OUTPUT_FILE="${OUTPUT_FILE:-}"
+for arg in "$@"; do
+  if [[ "$arg" =~ ^--output= ]]; then
+    # Extract output path from args like --output=/path/to/file
+    OUTPUT_FILE="${arg#--output=}"
+    break
+  fi
+done
+
+# By default, generate output in the same directory as the script with format:
+# enum-project-projectID-YYYY-MM-DD.txt
+if [ -z "${OUTPUT_FILE:-}" ]; then
+  CURRENT_DATE=$(date +%Y-%m-%d)
+  OUTPUT_FILE="${SCRIPT_DIR}/enum-project-${PROJECT_ARG}-${CURRENT_DATE}.txt"
+fi
+
+# Set up dual logging
+if [ -n "${OUTPUT_FILE:-}" ]; then
+  exec > >(tee -a "$OUTPUT_FILE") 2> >(tee -a "$OUTPUT_FILE" >&2)
+  echo "Output being saved to: $OUTPUT_FILE"
+  echo ""
+fi
+
+# Timing helpers
+section_start() { SECTION_START=$SECONDS; }
+section_elapsed() { local elapsed=$(( SECONDS - SECTION_START )); printf " (%ds)" "$elapsed"; echo ""; }
 
 # Upfront auth check
 auth_status=$(gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>/dev/null || true)

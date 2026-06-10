@@ -1,0 +1,2 @@
+# Ignore default GCP Project Security Triage output files
+enum-project-*.txt
