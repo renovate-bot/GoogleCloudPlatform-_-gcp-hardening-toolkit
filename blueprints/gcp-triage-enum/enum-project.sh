@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 echo "============================================================"
 echo "         GCP Project Security Triage and Enumeration        "
@@ -14,21 +15,61 @@ TRUSTED_DOMAINS=(
   "google.com"
 )
 
+# Output file (optional) - pass via OUTPUT_FILE env var or --output flag
+OUTPUT_FILE="${OUTPUT_FILE:-}"
+if [[ "${*:-}" == *"--output"* ]]; then
+  # Extract output path from args like --output=/path/to/file
+  OUTPUT_FILE=$(echo "$@" | grep -oP '(?<=--output=)\S+' || true)
+fi
+
+# Set up dual logging if output file specified
+if [ -n "${OUTPUT_FILE:-}" ]; then
+  exec > >(tee -a "$OUTPUT_FILE") 2> >(tee -a "$OUTPUT_FILE" >&2)
+  echo "Output being saved to: $OUTPUT_FILE"
+  echo ""
+fi
+
+# Timing helpers
+section_start() { SECTION_START=$SECONDS; }
+section_elapsed() { local elapsed=$(( SECONDS - SECTION_START )); printf " (%ds)" "$elapsed"; echo ""; }
+
 # Check if a project ID was provided as an argument.
-if [ -z "$1" ]; then
-  echo "Usage: $0 <project-id>"
+PROJECT_ARG=""
+for arg in "$@"; do
+  if [[ ! "$arg" =~ ^-- ]]; then
+    PROJECT_ARG="$arg"
+    break
+  fi
+done
+
+if [ -z "${PROJECT_ARG:-}" ]; then
+  echo "Usage: $0 [--output=/path/to/file] <project-id>"
+  exit 1
+fi
+
+# Upfront auth check
+auth_status=$(gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>/dev/null || true)
+if [ -z "${auth_status:-}" ]; then
+  echo "ERROR: No active gcloud authentication found."
+  echo "Please run 'gcloud auth login' or 'gcloud auth application-default login' first."
   exit 1
 fi
 
 # Execute the gcloud command and capture its output
-gcloud_output=$(gcloud projects describe "$1")
+gcloud_output=$(gcloud projects describe "$PROJECT_ARG")
 
 # Parse the output and set variables
 createTime=$(echo "$gcloud_output" | grep "createTime:" | awk '{print $2}' | tr -d "'")
 lifecycleState=$(echo "$gcloud_output" | grep "lifecycleState:" | awk '{print $2}')
 name=$(echo "$gcloud_output" | grep "name:" | awk '{print $2}')
-parent_id=$(echo "$gcloud_output" | grep "id:" | awk '{print $2}' | tr -d "'")
-parent_type=$(echo "$gcloud_output" | grep "type:" | awk '{print $2}')
+parent_info=$(gcloud alpha resource-manager projects describe "$PROJECT_ARG" --format="json(parent)" 2>/dev/null || true)
+if [ -n "${parent_info:-}" ]; then
+  parent_id=$(echo "$parent_info" | jq -r '.parent.id // "N/A"' 2>/dev/null || echo "N/A")
+  parent_type=$(echo "$parent_info" | jq -r '.parent.type // "N/A"' 2>/dev/null || echo "N/A")
+else
+  parent_id="N/A (resource-manager API may be disabled)"
+  parent_type="N/A"
+fi
 projectId=$(echo "$gcloud_output" | grep "projectId:" | awk '{print $2}')
 projectNumber=$(echo "$gcloud_output" | grep "projectNumber:" | awk '{print $2}' | tr -d "'")
 
@@ -48,6 +89,7 @@ echo "projectNumber: $projectNumber"
 # Section 1: IAM Assessment
 # ==========================================
 echo ""
+section_start
 echo "========================================"
 echo "IAM Assessment:"
 echo "========================================"
@@ -66,7 +108,7 @@ for user in $all_users; do
 
   if [ ${#TRUSTED_DOMAINS[@]} -gt 0 ]; then
     for trusted_domain in "${TRUSTED_DOMAINS[@]}"; do
-      if [[ "$user_domain" == "$trusted_domain" ]]; then
+      if [[ "$user_domain" == "$trusted_domain" || "$user_domain" == *".${trusted_domain}" ]]; then
         is_trusted=1
         break
       fi
@@ -107,10 +149,11 @@ fi
 # ==========================================
 # Section 2: Network Assessment
 # ==========================================
-echo ""
+section_elapsed
 echo "========================================"
 echo "Network Assessment:"
 echo "========================================"
+section_start
 
 # Default VPC Check
 default_vpc=$(gcloud compute networks list --project="$projectId" --filter="name=default" --format="value(name)")
@@ -155,10 +198,11 @@ fi
 # ==========================================
 # Section 3: Cloud DNS Assessment
 # ==========================================
-echo ""
+section_elapsed
 echo "========================================"
 echo "Cloud DNS Assessment:"
 echo "========================================"
+section_start
 
 # Get all networks
 networks=$(gcloud compute networks list --project="$projectId" --format="value(name)")
@@ -207,10 +251,11 @@ done
 # ==========================================
 # Section 4: Service Account Key Assessment
 # ==========================================
-echo ""
+section_elapsed
 echo "========================================"
 echo "Service Account Key Assessment:"
 echo "========================================"
+section_start
 
 all_sa_keys=""
 service_accounts=$(gcloud iam service-accounts list --project="$projectId" --format="value(email)")
@@ -234,10 +279,11 @@ fi
 # ==========================================
 # Section 5: Public Resource Exposure
 # ==========================================
-echo ""
+section_elapsed
 echo "========================================"
 echo "Public Resource Exposure:"
 echo "========================================"
+section_start
 
 # Public GCS Buckets
 echo "Public GCS Buckets (allUsers / allAuthenticatedUsers):"
@@ -270,10 +316,11 @@ fi
 # ==========================================
 # Section 6: Infrastructure Exposure
 # ==========================================
-echo ""
+section_elapsed
 echo "========================================"
 echo "Infrastructure Exposure:"
 echo "========================================"
+section_start
 
 # Compute Instances with External IPs
 echo "Compute Instances with External IPs:"
@@ -300,10 +347,11 @@ fi
 # ==========================================
 # Section 7: Service Account Hardening
 # ==========================================
-echo ""
+section_elapsed
 echo "========================================"
 echo "Service Account Hardening:"
 echo "========================================"
+section_start
 
 # Default Service Account Usage (Compute)
 echo "Compute Instances using Default Service Account:"
@@ -348,10 +396,11 @@ fi
 # ==========================================
 # Section 8: Serverless & Artifact Exposure
 # ==========================================
-echo ""
+section_elapsed
 echo "========================================"
 echo "Serverless & Artifact Exposure:"
 echo "========================================"
+section_start
 
 # Public Cloud Run Services
 echo "Public Cloud Run Services (Unauthenticated Access):"
@@ -398,10 +447,11 @@ fi
 # ==========================================
 # Section 9: Network Visibility (Flow Logs)
 # ==========================================
-echo ""
+section_elapsed
 echo "========================================"
 echo "Network Visibility (Flow Logs):"
 echo "========================================"
+section_start
 
 # Checking Flow Logs for all subnets
 echo "VPC Subnets with Flow Logs DISABLED:"
@@ -419,10 +469,11 @@ fi
 # ==========================================
 # Section 10: VM-Level Hardening
 # ==========================================
-echo ""
+section_elapsed
 echo "========================================"
 echo "VM-Level Hardening:"
 echo "========================================"
+section_start
 
 # Project-wide SSH Keys Check
 echo "Project-wide SSH Keys Enabled:"
@@ -450,7 +501,8 @@ else
   echo "  - None"
 fi
 
-echo ""
+section_elapsed
+
 echo "============================================================"
 echo "         GCP Project Security Triage - Scan Complete        "
 echo "============================================================"
