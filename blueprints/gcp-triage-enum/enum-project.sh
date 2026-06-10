@@ -17,10 +17,13 @@ TRUSTED_DOMAINS=(
 
 # Output file (optional) - pass via OUTPUT_FILE env var or --output flag
 OUTPUT_FILE="${OUTPUT_FILE:-}"
-if [[ "${*:-}" == *"--output"* ]]; then
-  # Extract output path from args like --output=/path/to/file
-  OUTPUT_FILE=$(echo "$@" | grep -oP '(?<=--output=)\S+' || true)
-fi
+for arg in "$@"; do
+  if [[ "$arg" =~ ^--output= ]]; then
+    # Extract output path from args like --output=/path/to/file
+    OUTPUT_FILE="${arg#--output=}"
+    break
+  fi
+done
 
 # Set up dual logging if output file specified
 if [ -n "${OUTPUT_FILE:-}" ]; then
@@ -59,9 +62,9 @@ fi
 gcloud_output=$(gcloud projects describe "$PROJECT_ARG")
 
 # Parse the output and set variables
-createTime=$(echo "$gcloud_output" | grep "createTime:" | awk '{print $2}' | tr -d "'")
-lifecycleState=$(echo "$gcloud_output" | grep "lifecycleState:" | awk '{print $2}')
-name=$(echo "$gcloud_output" | grep "name:" | awk '{print $2}')
+createTime=$(echo "$gcloud_output" | awk '/createTime:/ {print $2}' | tr -d "'")
+lifecycleState=$(echo "$gcloud_output" | awk '/lifecycleState:/ {print $2}')
+name=$(echo "$gcloud_output" | awk '/name:/ {print $2}')
 parent_info=$(gcloud alpha resource-manager projects describe "$PROJECT_ARG" --format="json(parent)" 2>/dev/null || true)
 if [ -n "${parent_info:-}" ]; then
   parent_id=$(echo "$parent_info" | jq -r '.parent.id // "N/A"' 2>/dev/null || echo "N/A")
@@ -70,8 +73,8 @@ else
   parent_id="N/A (resource-manager API may be disabled)"
   parent_type="N/A"
 fi
-projectId=$(echo "$gcloud_output" | grep "projectId:" | awk '{print $2}')
-projectNumber=$(echo "$gcloud_output" | grep "projectNumber:" | awk '{print $2}' | tr -d "'")
+projectId=$(echo "$gcloud_output" | awk '/projectId:/ {print $2}')
+projectNumber=$(echo "$gcloud_output" | awk '/projectNumber:/ {print $2}' | tr -d "'")
 
 # Display Project Metadata
 echo "========================================"
@@ -97,7 +100,7 @@ echo "========================================"
 all_users=$(gcloud asset search-all-iam-policies \
   --scope=projects/${projectId} \
   --format="value(policy.bindings.members.flatten())" | \
-  tr ',' '\n' | tr ' ' '\n' | grep '^user:' | sed 's/^user://' | sort -u)
+  tr ',' '\n' | tr ' ' '\n' | awk '/^user:/ {sub(/^user:/, ""); print}' | sort -u)
 
 untrusted_users=""
 
@@ -325,7 +328,7 @@ section_start
 # Compute Instances with External IPs
 echo "Compute Instances with External IPs:"
 instances_ext_ip=$(gcloud compute instances list --project="$projectId" \
-  --format="table[no-heading](name, networkInterfaces[].accessConfigs[0].natIP)" | grep -v "None" | awk '{print $1 " (" $2 ")"}')
+  --format="table[no-heading](name, networkInterfaces[].accessConfigs[0].natIP)" | awk '$2 && $2 != "None" {print $1 " (" $2 ")"}')
 
 if [ -n "$instances_ext_ip" ]; then
   echo "$instances_ext_ip" | sed 's/^/  - /'
@@ -378,7 +381,7 @@ found_old_keys=0
 while read -r key_name key_date; do
   if [ -n "$key_name" ] && [ -n "$key_date" ]; then
     # Parse ISO 8601 date to seconds (requires GNU date or compatible)
-    key_date_sec=$(date -d "$key_date" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$key_date" +%s 2>/dev/null)
+    key_date_sec=$(date -d "$key_date" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$key_date" +%s 2>/dev/null || echo "")
     if [ -n "$key_date_sec" ]; then
       age_sec=$((current_date_sec - key_date_sec))
       if [ "$age_sec" -gt "$ninety_days_sec" ]; then
