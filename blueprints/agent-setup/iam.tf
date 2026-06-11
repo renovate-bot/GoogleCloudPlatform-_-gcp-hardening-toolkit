@@ -31,18 +31,24 @@ resource "google_bigquery_dataset_iam_binding" "agent_bigquery_viewer" {
   ]
 }
 
-resource "google_project_iam_binding" "agent_bigquery_job_user" {
+resource "google_project_iam_member" "agent_bigquery_job_user" {
   project = var.project_id
   role    = "roles/bigquery.jobUser"
-  members = [
-    "serviceAccount:${google_service_account.agent_sa.email}"
-  ]
+  member  = "serviceAccount:${google_service_account.agent_sa.email}"
 }
 
-resource "google_storage_bucket_iam_member" "agent_storage_object_viewer" {
-  bucket = google_storage_bucket.agent_state.name
-  role   = "roles/storage.objectViewer"
-  member = "serviceAccount:${google_service_account.agent_sa.email}"
+# Allows the agent to create and manage its own datasets, tables, and run queries
+resource "google_project_iam_member" "agent_bigquery_user" {
+  project = var.project_id
+  role    = "roles/bigquery.user"
+  member  = "serviceAccount:${google_service_account.agent_sa.email}"
+}
+
+# Project-level: Allows the agent to read objects from any bucket in the project for security assessments
+resource "google_project_iam_member" "agent_storage_object_viewer" {
+  project = var.project_id
+  role    = "roles/storage.objectViewer"
+  member  = "serviceAccount:${google_service_account.agent_sa.email}"
 }
 
 # Required for the agent to read resources and security telemetry
@@ -67,12 +73,10 @@ resource "google_project_iam_member" "agent_security_reviewer" {
 }
 
 # Optional: Add Service Usage Consumer if needed to use APIs
-resource "google_project_iam_binding" "service_usage_consumer" {
+resource "google_project_iam_member" "service_usage_consumer" {
   project = var.project_id
   role    = "roles/serviceusage.serviceUsageConsumer"
-  members = [
-    "serviceAccount:${google_service_account.agent_sa.email}"
-  ]
+  member  = "serviceAccount:${google_service_account.agent_sa.email}"
 }
 
 # Allow the user to impersonate the Service Account (avoids the need for JSON keys)

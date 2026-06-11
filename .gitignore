@@ -67,6 +67,9 @@ Temporary Items
 .localized
 ehthumbs.db
 
+# JetBrains (IntelliJ, PyCharm, GoLand, etc.)
+.idea/
+
 # Temporary virtual environments
 .tmp_venv
 .verify_venv

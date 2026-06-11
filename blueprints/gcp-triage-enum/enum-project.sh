@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 echo "============================================================"
 echo "         GCP Project Security Triage and Enumeration        "
@@ -14,23 +15,76 @@ TRUSTED_DOMAINS=(
   "google.com"
 )
 
+# Get the directory of the script dynamically
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 # Check if a project ID was provided as an argument.
-if [ -z "$1" ]; then
-  echo "Usage: $0 <project-id>"
+PROJECT_ARG=""
+for arg in "$@"; do
+  if [[ ! "$arg" =~ ^-- ]]; then
+    PROJECT_ARG="$arg"
+    break
+  fi
+done
+
+if [ -z "${PROJECT_ARG:-}" ]; then
+  echo "Usage: $0 [--output=/path/to/file] <project-id>"
+  exit 1
+fi
+
+# Output file - pass via OUTPUT_FILE env var or --output flag, otherwise default
+OUTPUT_FILE="${OUTPUT_FILE:-}"
+for arg in "$@"; do
+  if [[ "$arg" =~ ^--output= ]]; then
+    # Extract output path from args like --output=/path/to/file
+    OUTPUT_FILE="${arg#--output=}"
+    break
+  fi
+done
+
+# By default, generate output in the same directory as the script with format:
+# enum-project-projectID-YYYY-MM-DD.txt
+if [ -z "${OUTPUT_FILE:-}" ]; then
+  CURRENT_DATE=$(date +%Y-%m-%d)
+  OUTPUT_FILE="${SCRIPT_DIR}/enum-project-${PROJECT_ARG}-${CURRENT_DATE}.txt"
+fi
+
+# Set up dual logging
+if [ -n "${OUTPUT_FILE:-}" ]; then
+  exec > >(tee -a "$OUTPUT_FILE") 2> >(tee -a "$OUTPUT_FILE" >&2)
+  echo "Output being saved to: $OUTPUT_FILE"
+  echo ""
+fi
+
+# Timing helpers
+section_start() { SECTION_START=$SECONDS; }
+section_elapsed() { local elapsed=$(( SECONDS - SECTION_START )); printf " (%ds)" "$elapsed"; echo ""; }
+
+# Upfront auth check
+auth_status=$(gcloud auth list --filter=status:ACTIVE --format="value(account)" 2>/dev/null || true)
+if [ -z "${auth_status:-}" ]; then
+  echo "ERROR: No active gcloud authentication found."
+  echo "Please run 'gcloud auth login' or 'gcloud auth application-default login' first."
   exit 1
 fi
 
 # Execute the gcloud command and capture its output
-gcloud_output=$(gcloud projects describe "$1")
+gcloud_output=$(gcloud projects describe "$PROJECT_ARG")
 
 # Parse the output and set variables
-createTime=$(echo "$gcloud_output" | grep "createTime:" | awk '{print $2}' | tr -d "'")
-lifecycleState=$(echo "$gcloud_output" | grep "lifecycleState:" | awk '{print $2}')
-name=$(echo "$gcloud_output" | grep "name:" | awk '{print $2}')
-parent_id=$(echo "$gcloud_output" | grep "id:" | awk '{print $2}' | tr -d "'")
-parent_type=$(echo "$gcloud_output" | grep "type:" | awk '{print $2}')
-projectId=$(echo "$gcloud_output" | grep "projectId:" | awk '{print $2}')
-projectNumber=$(echo "$gcloud_output" | grep "projectNumber:" | awk '{print $2}' | tr -d "'")
+createTime=$(echo "$gcloud_output" | awk '/createTime:/ {print $2}' | tr -d "'")
+lifecycleState=$(echo "$gcloud_output" | awk '/lifecycleState:/ {print $2}')
+name=$(echo "$gcloud_output" | awk '/name:/ {print $2}')
+parent_info=$(gcloud alpha resource-manager projects describe "$PROJECT_ARG" --format="json(parent)" 2>/dev/null || true)
+if [ -n "${parent_info:-}" ]; then
+  parent_id=$(echo "$parent_info" | jq -r '.parent.id // "N/A"' 2>/dev/null || echo "N/A")
+  parent_type=$(echo "$parent_info" | jq -r '.parent.type // "N/A"' 2>/dev/null || echo "N/A")
+else
+  parent_id="N/A (resource-manager API may be disabled)"
+  parent_type="N/A"
+fi
+projectId=$(echo "$gcloud_output" | awk '/projectId:/ {print $2}')
+projectNumber=$(echo "$gcloud_output" | awk '/projectNumber:/ {print $2}' | tr -d "'")
 
 # Display Project Metadata
 echo "========================================"
@@ -48,6 +102,7 @@ echo "projectNumber: $projectNumber"
 # Section 1: IAM Assessment
 # ==========================================
 echo ""
+section_start
 echo "========================================"
 echo "IAM Assessment:"
 echo "========================================"
@@ -55,7 +110,7 @@ echo "========================================"
 all_users=$(gcloud asset search-all-iam-policies \
   --scope=projects/${projectId} \
   --format="value(policy.bindings.members.flatten())" | \
-  tr ',' '\n' | tr ' ' '\n' | grep '^user:' | sed 's/^user://' | sort -u)
+  tr ',' '\n' | tr ' ' '\n' | awk '/^user:/ {sub(/^user:/, ""); print}' | sort -u)
 
 untrusted_users=""
 
@@ -66,7 +121,7 @@ for user in $all_users; do
 
   if [ ${#TRUSTED_DOMAINS[@]} -gt 0 ]; then
     for trusted_domain in "${TRUSTED_DOMAINS[@]}"; do
-      if [[ "$user_domain" == "$trusted_domain" ]]; then
+      if [[ "$user_domain" == "$trusted_domain" || "$user_domain" == *".${trusted_domain}" ]]; then
         is_trusted=1
         break
       fi
@@ -107,10 +162,11 @@ fi
 # ==========================================
 # Section 2: Network Assessment
 # ==========================================
-echo ""
+section_elapsed
 echo "========================================"
 echo "Network Assessment:"
 echo "========================================"
+section_start
 
 # Default VPC Check
 default_vpc=$(gcloud compute networks list --project="$projectId" --filter="name=default" --format="value(name)")
@@ -155,10 +211,11 @@ fi
 # ==========================================
 # Section 3: Cloud DNS Assessment
 # ==========================================
-echo ""
+section_elapsed
 echo "========================================"
 echo "Cloud DNS Assessment:"
 echo "========================================"
+section_start
 
 # Get all networks
 networks=$(gcloud compute networks list --project="$projectId" --format="value(name)")
@@ -207,10 +264,11 @@ done
 # ==========================================
 # Section 4: Service Account Key Assessment
 # ==========================================
-echo ""
+section_elapsed
 echo "========================================"
 echo "Service Account Key Assessment:"
 echo "========================================"
+section_start
 
 all_sa_keys=""
 service_accounts=$(gcloud iam service-accounts list --project="$projectId" --format="value(email)")
@@ -234,10 +292,11 @@ fi
 # ==========================================
 # Section 5: Public Resource Exposure
 # ==========================================
-echo ""
+section_elapsed
 echo "========================================"
 echo "Public Resource Exposure:"
 echo "========================================"
+section_start
 
 # Public GCS Buckets
 echo "Public GCS Buckets (allUsers / allAuthenticatedUsers):"
@@ -270,15 +329,16 @@ fi
 # ==========================================
 # Section 6: Infrastructure Exposure
 # ==========================================
-echo ""
+section_elapsed
 echo "========================================"
 echo "Infrastructure Exposure:"
 echo "========================================"
+section_start
 
 # Compute Instances with External IPs
 echo "Compute Instances with External IPs:"
 instances_ext_ip=$(gcloud compute instances list --project="$projectId" \
-  --format="table[no-heading](name, networkInterfaces[].accessConfigs[0].natIP)" | grep -v "None" | awk '{print $1 " (" $2 ")"}')
+  --format="table[no-heading](name, networkInterfaces[].accessConfigs[0].natIP)" | awk '$2 && $2 != "None" {print $1 " (" $2 ")"}')
 
 if [ -n "$instances_ext_ip" ]; then
   echo "$instances_ext_ip" | sed 's/^/  - /'
@@ -300,10 +360,11 @@ fi
 # ==========================================
 # Section 7: Service Account Hardening
 # ==========================================
-echo ""
+section_elapsed
 echo "========================================"
 echo "Service Account Hardening:"
 echo "========================================"
+section_start
 
 # Default Service Account Usage (Compute)
 echo "Compute Instances using Default Service Account:"
@@ -330,7 +391,7 @@ found_old_keys=0
 while read -r key_name key_date; do
   if [ -n "$key_name" ] && [ -n "$key_date" ]; then
     # Parse ISO 8601 date to seconds (requires GNU date or compatible)
-    key_date_sec=$(date -d "$key_date" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$key_date" +%s 2>/dev/null)
+    key_date_sec=$(date -d "$key_date" +%s 2>/dev/null || date -j -f "%Y-%m-%dT%H:%M:%SZ" "$key_date" +%s 2>/dev/null || echo "")
     if [ -n "$key_date_sec" ]; then
       age_sec=$((current_date_sec - key_date_sec))
       if [ "$age_sec" -gt "$ninety_days_sec" ]; then
@@ -348,10 +409,11 @@ fi
 # ==========================================
 # Section 8: Serverless & Artifact Exposure
 # ==========================================
-echo ""
+section_elapsed
 echo "========================================"
 echo "Serverless & Artifact Exposure:"
 echo "========================================"
+section_start
 
 # Public Cloud Run Services
 echo "Public Cloud Run Services (Unauthenticated Access):"
@@ -398,10 +460,11 @@ fi
 # ==========================================
 # Section 9: Network Visibility (Flow Logs)
 # ==========================================
-echo ""
+section_elapsed
 echo "========================================"
 echo "Network Visibility (Flow Logs):"
 echo "========================================"
+section_start
 
 # Checking Flow Logs for all subnets
 echo "VPC Subnets with Flow Logs DISABLED:"
@@ -419,10 +482,11 @@ fi
 # ==========================================
 # Section 10: VM-Level Hardening
 # ==========================================
-echo ""
+section_elapsed
 echo "========================================"
 echo "VM-Level Hardening:"
 echo "========================================"
+section_start
 
 # Project-wide SSH Keys Check
 echo "Project-wide SSH Keys Enabled:"
@@ -450,7 +514,8 @@ else
   echo "  - None"
 fi
 
-echo ""
+section_elapsed
+
 echo "============================================================"
 echo "         GCP Project Security Triage - Scan Complete        "
 echo "============================================================"
